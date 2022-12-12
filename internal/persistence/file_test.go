@@ -15,7 +15,7 @@ func TestNew(t *testing.T) {
 
 	prefix := fmt.Sprintf("testdata/type/%s/type-subtest-", time.Now().Format("2006/01/02"))
 	if !strings.HasPrefix(df.fp.Name(), prefix) ||
-		!strings.HasSuffix(df.fp.Name(), "fake-uuid.json.gz") {
+		!strings.HasSuffix(df.fp.Name(), "fake-uuid.json") {
 		t.Errorf("invalid output filename: %s", df.fp.Name())
 	}
 }
