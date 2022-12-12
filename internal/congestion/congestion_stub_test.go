@@ -28,6 +28,7 @@ func Test_Get(t *testing.T) {
 }
 
 func Test_getMaxBandwidthAndMinRTT(t *testing.T) {
+	// This is unsupported on non-Linux systems.
 	_, err := GetBBRInfo(&os.File{})
 	if err == nil {
 		t.Errorf("expected error, got nil")
