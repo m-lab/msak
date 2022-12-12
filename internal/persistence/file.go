@@ -1,9 +1,7 @@
 package persistence
 
 import (
-	"compress/gzip"
 	"encoding/json"
-	"io"
 	"os"
 	"path"
 	"time"
@@ -11,8 +9,7 @@ import (
 
 // DataFile is the file where we save measurements.
 type DataFile struct {
-	writer io.WriteCloser
-	fp     *os.File
+	fp *os.File
 }
 
 func newDataFile(datadir, datatype, subtest, uuid string) (*DataFile, error) {
@@ -23,19 +20,14 @@ func newDataFile(datadir, datatype, subtest, uuid string) (*DataFile, error) {
 		return nil, err
 	}
 	filepath := path.Join(dir, datatype+"-"+subtest+"-"+
-		timestamp.Format("20060102T150405.000000000Z")+"."+uuid+".json.gz")
+		timestamp.Format("20060102T150405.000000000Z")+"."+uuid+".json")
 	fp, err := os.OpenFile(filepath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
 	if err != nil {
 		return nil, err
 	}
-	writer, err := gzip.NewWriterLevel(fp, gzip.BestSpeed)
-	if err != nil {
-		fp.Close()
-		return nil, err
-	}
+
 	return &DataFile{
-		writer: writer,
-		fp:     fp,
+		fp: fp,
 	}, nil
 }
 
@@ -46,25 +38,19 @@ func New(datadir, datatype, subtest, uuid string) (*DataFile, error) {
 		return nil, err
 	}
 	return file, nil
-
 }
 
-// Write writes a JSON representation of result to this file.
+// Write writes a JSON representation of the result to this file.
 func (df *DataFile) Write(result interface{}) error {
 	data, err := json.Marshal(result)
 	if err != nil {
 		return err
 	}
-	_, err = df.writer.Write(data)
+	_, err = df.fp.Write(data)
 	return err
 }
 
-// Close closes the gzip writer and the file.
+// Close closes the file.
 func (df *DataFile) Close() error {
-	err := df.writer.Close()
-	if err != nil {
-		df.fp.Close()
-		return err
-	}
 	return df.fp.Close()
 }

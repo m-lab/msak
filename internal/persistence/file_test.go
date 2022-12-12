@@ -1,7 +1,6 @@
 package persistence
 
 import (
-	"compress/gzip"
 	"fmt"
 	"strings"
 	"testing"
@@ -18,10 +17,6 @@ func TestNew(t *testing.T) {
 	if !strings.HasPrefix(df.fp.Name(), prefix) ||
 		!strings.HasSuffix(df.fp.Name(), "fake-uuid.json.gz") {
 		t.Errorf("invalid output filename: %s", df.fp.Name())
-	}
-
-	if _, ok := df.writer.(*gzip.Writer); !ok {
-		t.Errorf("writer is not a gzip.Writer")
 	}
 }
 
