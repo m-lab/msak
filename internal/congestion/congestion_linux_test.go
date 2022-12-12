@@ -43,7 +43,7 @@ func TestSet(t *testing.T) {
 	ccListStr := strings.TrimSpace(string(content))
 	ccList := strings.Split(ccListStr, " ")
 	for _, cc := range ccList {
-		t.Logf("testing cc |%s|", cc)
+		t.Logf("testing cc %s", cc)
 		err = Set(fp, cc)
 		if err != nil {
 			t.Fatalf("cannot set the socket's cc: %v", err)
