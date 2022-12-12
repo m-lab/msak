@@ -2,6 +2,7 @@ package persistence
 
 import (
 	"fmt"
+	"io/ioutil"
 	"strings"
 	"testing"
 	"time"
@@ -34,5 +35,14 @@ func TestDataFile_Write(t *testing.T) {
 	err = df.Close()
 	if err != nil {
 		t.Errorf("unexpected close error: %v", err)
+	}
+
+	// Check the file content.
+	content, err := ioutil.ReadFile(df.fp.Name())
+	if err != nil {
+		t.Errorf("error while reading file content: %v", err)
+	}
+	if string(content) != "[\"foo\"]" {
+		t.Errorf("unexpected file content: %s", string(content))
 	}
 }
