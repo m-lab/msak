@@ -26,11 +26,11 @@ type DataFile struct {
 }
 
 // WriteDataFile creates a new JSON output file containing the representation
-// of the result struct.
+// of the data struct.
 //
 // The path is determined by the provided prefix, datatype, subtest and uuid.
 func WriteDataFile(prefix, datatype, subtest, uuid string,
-	result interface{}) (*DataFile, error) {
+	data interface{}) (*DataFile, error) {
 	timestamp := time.Now()
 	dir := path.Join(prefix, datatype, timestamp.Format("2006/01/02"))
 	err := os.MkdirAll(dir, 0755)
@@ -44,8 +44,8 @@ func WriteDataFile(prefix, datatype, subtest, uuid string,
 		return nil, err
 	}
 	defer fp.Close()
-	// Marshal result struct.
-	jsonResult, err := json.Marshal(result)
+	// Marshal data struct.
+	jsonResult, err := json.Marshal(data)
 	if err != nil {
 		return nil, err
 	}
