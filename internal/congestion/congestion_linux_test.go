@@ -9,23 +9,7 @@ import (
 	"testing"
 )
 
-func TestGet(t *testing.T) {
-	// Create a TCP socket to test.
-	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM, 0)
-	if err != nil {
-		t.Fatalf("cannot create socket: %v", err)
-	}
-	fp := os.NewFile(uintptr(fd), fmt.Sprintf("fd %d", fd))
-	defer fp.Close()
-
-	cc, err := Get(fp)
-	if err != nil {
-		t.Errorf("cannot get the socket's cc: %v", err)
-	}
-	fmt.Println(cc)
-}
-
-func TestSet(t *testing.T) {
+func TestGetSet(t *testing.T) {
 	// Get a list of the available cc algorithms in the environment. Skip this
 	// test if the list cannot be read.
 	content, err := ioutil.ReadFile("/proc/sys/net/ipv4/tcp_available_congestion_control")
