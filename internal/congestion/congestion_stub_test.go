@@ -11,8 +11,8 @@ import (
 func Test_Set(t *testing.T) {
 	// This is unsupported on non-Linux systems.
 	err := Set(&os.File{}, "")
-	if err == nil {
-		t.Errorf("expected error, got nil")
+	if err != ErrNoSupport {
+		t.Errorf("expected ErrNoSupport, got: %v", err)
 	}
 }
 
@@ -22,15 +22,15 @@ func Test_Get(t *testing.T) {
 	if cc != "" {
 		t.Errorf("unexpected value")
 	}
-	if err == nil {
-		t.Errorf("expected error, got nil")
+	if err == ErrNoSupport {
+		t.Errorf("expected ErrNoSupport, got: %v", err)
 	}
 }
 
 func Test_getMaxBandwidthAndMinRTT(t *testing.T) {
 	// This is unsupported on non-Linux systems.
 	_, err := GetBBRInfo(&os.File{})
-	if err == nil {
-		t.Errorf("expected error, got nil")
+	if err == ErrNoSupport {
+		t.Errorf("expected ErrNoSupport, got: %v", err)
 	}
 }
