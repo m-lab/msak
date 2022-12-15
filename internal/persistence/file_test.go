@@ -20,7 +20,7 @@ type Unmarshallable struct {
 	Invalid chan byte
 }
 
-func TestNew(t *testing.T) {
+func TestWriteDataFile(t *testing.T) {
 	testdata := Marshallable{Test: "foo"}
 	df, err := persistence.WriteDataFile("testdata", "type", "subtest", "fake-uuid", testdata)
 	if err != nil {
