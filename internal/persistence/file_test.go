@@ -1,4 +1,4 @@
-package persistence
+package persistence_test
 
 import (
 	"fmt"
@@ -6,43 +6,42 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/m-lab/msak/internal/persistence"
 )
 
-func TestNew(t *testing.T) {
-	df, err := New("testdata", "type", "subtest", "fake-uuid")
-	if err != nil {
-		t.Fatalf("cannot create test datafile: %v", err)
-	}
-
-	prefix := fmt.Sprintf("testdata/type/%s/type-subtest-", time.Now().Format("2006/01/02"))
-	if !strings.HasPrefix(df.fp.Name(), prefix) ||
-		!strings.HasSuffix(df.fp.Name(), "fake-uuid.json") {
-		t.Errorf("invalid output filename: %s", df.fp.Name())
-	}
+// A struct that can be marshalled to JSON.
+type MarshallableStruct struct {
+	Test string
 }
 
-func TestDataFile_Write(t *testing.T) {
-	df, err := New("testdata", "type", "subtest", "fake-uuid")
+func TestNew(t *testing.T) {
+	testdata := MarshallableStruct{Test: "foo"}
+	df, err := persistence.WriteDataFile("testdata", "type", "subtest", "fake-uuid", testdata)
 	if err != nil {
 		t.Fatalf("cannot create test datafile: %v", err)
 	}
 
-	err = df.Write([]string{"foo"})
-	if err != nil {
-		t.Errorf("unexpected write error: %v", err)
+	if df.Prefix != "testdata" || df.Datatype != "type" ||
+		df.Subtest != "subtest" || df.UUID != "fake-uuid" {
+		t.Fatalf("invalid field values in DataFile")
 	}
 
-	err = df.Close()
-	if err != nil {
-		t.Errorf("unexpected close error: %v", err)
+	// Check the generated path.
+	prefix := fmt.Sprintf("testdata/type/%s/type-subtest-", time.Now().Format("2006/01/02"))
+	if !strings.HasPrefix(df.Path, prefix) ||
+		!strings.HasSuffix(df.Path, "fake-uuid.json") {
+		t.Errorf("invalid output path: %s", df.Path)
 	}
-
-	// Check the file content.
-	content, err := ioutil.ReadFile(df.fp.Name())
+	// Check the file contents.
+	content, err := ioutil.ReadFile(df.Path)
 	if err != nil {
 		t.Errorf("error while reading file content: %v", err)
 	}
-	if string(content) != "[\"foo\"]" {
+	if string(content) != `{"Test":"foo"}` {
 		t.Errorf("unexpected file content: %s", string(content))
+	}
+	if df.Size != len(content) {
+		t.Errorf("invalid Size: %d (should be %d)", df.Size, len(content))
 	}
 }

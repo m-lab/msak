@@ -9,12 +9,30 @@ import (
 
 // DataFile is the file where we save measurements.
 type DataFile struct {
-	fp *os.File
+	// The path prefix.
+	Prefix string
+	// Datatype component of the path.
+	Datatype string
+	// Subtest component of the path.
+	Subtest string
+	// UUID of this measurement file.
+	UUID string
+	// The size of this data file on disk, in bytes.
+	Size int
+
+	// The relative file path, generated according to the provided prefix,
+	// datatype, subtest, uuid and the timestamp at generation time.
+	Path string
 }
 
-func newDataFile(datadir, datatype, subtest, uuid string) (*DataFile, error) {
+// WriteDataFile creates a new JSON output file containing the representation
+// of the result struct.
+//
+// The path is determined by the provided prefix, datatype, subtest and uuid.
+func WriteDataFile(prefix, datatype, subtest, uuid string,
+	result interface{}) (*DataFile, error) {
 	timestamp := time.Now()
-	dir := path.Join(datadir, datatype, timestamp.Format("2006/01/02"))
+	dir := path.Join(prefix, datatype, timestamp.Format("2006/01/02"))
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
 		return nil, err
@@ -25,32 +43,22 @@ func newDataFile(datadir, datatype, subtest, uuid string) (*DataFile, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	return &DataFile{
-		fp: fp,
-	}, nil
-}
-
-// New creates a DataFile for saving results in datadir.
-func New(datadir, datatype, subtest, uuid string) (*DataFile, error) {
-	file, err := newDataFile(datadir, datatype, subtest, uuid)
+	defer fp.Close()
+	// Marshal result struct.
+	jsonResult, err := json.Marshal(result)
 	if err != nil {
 		return nil, err
 	}
-	return file, nil
-}
-
-// Write writes a JSON representation of the result to this file.
-func (df *DataFile) Write(result interface{}) error {
-	data, err := json.Marshal(result)
+	n, err := fp.Write(jsonResult)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	_, err = df.fp.Write(data)
-	return err
-}
-
-// Close closes the file.
-func (df *DataFile) Close() error {
-	return df.fp.Close()
+	return &DataFile{
+		Prefix:   prefix,
+		Datatype: datatype,
+		Subtest:  subtest,
+		UUID:     uuid,
+		Path:     filepath,
+		Size:     n,
+	}, nil
 }
