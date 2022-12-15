@@ -11,12 +11,17 @@ import (
 )
 
 // A struct that can be marshalled to JSON.
-type MarshallableStruct struct {
+type Marshallable struct {
 	Test string
 }
 
+// A struct that cannot be marshalled to JSON.
+type Unmarshallable struct {
+	Invalid chan byte
+}
+
 func TestNew(t *testing.T) {
-	testdata := MarshallableStruct{Test: "foo"}
+	testdata := Marshallable{Test: "foo"}
 	df, err := persistence.WriteDataFile("testdata", "type", "subtest", "fake-uuid", testdata)
 	if err != nil {
 		t.Fatalf("cannot create test datafile: %v", err)
@@ -43,5 +48,11 @@ func TestNew(t *testing.T) {
 	}
 	if df.Size != len(content) {
 		t.Errorf("invalid Size: %d (should be %d)", df.Size, len(content))
+	}
+
+	invaliddata := Unmarshallable{Invalid: make(chan byte)}
+	_, err = persistence.WriteDataFile("testdata", "type", "subtest", "fake-uuid", invaliddata)
+	if err == nil {
+		t.Fatalf("expected error, got nil")
 	}
 }
