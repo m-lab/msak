@@ -8,7 +8,7 @@ import (
 )
 
 // NDTMResult is the struct that is serialized as JSON to disk as the archival
-// record of an NDT-M test.
+// record of an ndt-m test.
 type NDTMResult struct {
 	// GitShortCommit is the Git commit (short form) of the running server code.
 	GitShortCommit string
