@@ -59,7 +59,8 @@ type ConnectionInfo struct {
 	Client string
 	Server string
 	UUID   string `json:",omitempty"`
-	// CC is the congestion algorithm used by the sender of this struct.
+	// CC is the congestion algorithm used by the sender of the Measurement
+	// that includes this struct.
 	CC string
 }
 
