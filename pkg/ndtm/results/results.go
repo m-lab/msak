@@ -19,7 +19,7 @@ type NDTMResult struct {
 	// MeasurementID is the unique identifier for multiple TCP flows belonging
 	// to the same measurement.
 	MeasurementID string
-	// UUID is the unique ID for this TCP flow.
+	// UUID is the unique identifier for this TCP flow.
 	UUID string
 	// Server is the server's TCP endpoint (ip:port).
 	Server string
@@ -76,12 +76,14 @@ type Measurement struct {
 
 // WireMeasurement is a wrapper for Measurement structs that contains
 // information about this TCP flow that does not need to be sent every time.
-// Every field except for Measurement is only expected to be filled once.
+// Every field except for Measurement is only expected to be non-empty once.
 type WireMeasurement struct {
+	// UUID is the unique identifier for this TCP flow.
 	UUID string `json:",omitempty"`
-
+	// Client is the client's TCP endpoint (ip:port).
 	Client string `json:",omitempty"`
+	// Server is the server's TCP endpoint (ip:port).
 	Server string `json:",omitempty"`
-
+	// Measurement is the Measurement struct wrapped by this WireMeasurement.
 	Measurement Measurement
 }
