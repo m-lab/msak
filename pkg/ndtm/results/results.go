@@ -14,67 +14,74 @@ type NDTMResult struct {
 	GitShortCommit string
 	// Version is the symbolic version (if any) of the running server code.
 	Version string
-
-	// MeasurementID identifies multiple flows belonging to the same
-	// measurement.
+	// Direction is the test direction (download or upload)
+	Direction string
+	// MeasurementID is the unique identifier for multiple TCP flows belonging
+	// to the same measurement.
 	MeasurementID string
 	// UUID is the unique ID for this TCP flow.
 	UUID string
+	// Server is the server's TCP endpoint (ip:port).
+	Server string
+	// Client is the client's TCP endpoint (ip:port).
+	Client string
+	// CCAlgorithm is the Congestion control algorithm used by the sender in
+	// this flow.
+	CCAlgorithm string
 	// StartTime is the time when the flow started. It does not include the
 	// connection setup time.
 	StartTime time.Time
 	// EndTime is the time when the flow ended.
 	EndTime time.Time
-	// CongestionControl is the congestion control algorithm used by the flow.
-	CongestionControl string
-	// SubTest is the subtest of the measurement (download or upload)
-	SubTest string
+
 	// ServerMeasurements is a list of measurements taken by the server.
 	ServerMeasurements []Measurement
 	// ClientMeasurements is a list of measurements taken by the client.
 	ClientMeasurements []Measurement
+
+	// ClientOptions is a map containing the standard querystring parameters
+	// sent by the client and recognized by the server as options.
+	ClientOptions map[string]string
+
+	// ClientMetadata is a map containing every non-standard querystring
+	// parameter sent by the client.
+	ClientMetadata map[string]string
 }
 
 // The Measurement struct contains measurement results. This structure is
 // meant to be serialised as JSON as sent as a textual message. This
 // structure is specified in the ndt7 specification.
 type Measurement struct {
-	AppInfo        *AppInfo        `json:",omitempty"`
-	ConnectionInfo *ConnectionInfo `json:",omitempty" bigquery:"-"`
-	BBRInfo        *BBRInfo        `json:",omitempty"`
-	TCPInfo        *TCPInfo        `json:",omitempty"`
-	Origin         string          `json:",omitempty"`
+	// BytesRecv is the number of bytes received at the application level
+	// by the party sending this Measurement.
+	BytesRecv int64 `json:",omitempty"`
+
+	// ElapsedTime is the time elapsed since the start of the measurement
+	// according to the party sending this Measurement.
+	ElapsedTime int64 `json:",omitempty"`
+
+	// Origin is the origin of this Measurement ("sender" or "receiver")
+	Origin string `json:",omitempty"`
+
+	// BBRInfo is an optional struct containing BBR metrics. Only applicable
+	// when the congestion control algorithm used by the party sending this
+	// Measurement is BBR.
+	BBRInfo *inetdiag.BBRInfo `json:",omitempty"`
+
+	// TCPInfo is an optional struct containing some of the TCP_INFO kernel
+	// metrics for this TCP flow. Only applicable when the party sending this
+	// Measurement has access to it.
+	TCPInfo *tcp.LinuxTCPInfo `json:",omitempty"`
 }
 
-// AppInfo contains an application-level measurement. This structure is
-// described in the ndt7 specification.
-type AppInfo struct {
-	NumBytes    int64
-	ElapsedTime int64
-}
+// WireMeasurement is a wrapper for Measurement structs that contains
+// information about this TCP flow that does not need to be sent every time.
+// Every field except for Measurement is only expected to be filled once.
+type WireMeasurement struct {
+	UUID string `json:",omitempty"`
 
-// ConnectionInfo contains connection info. This structure is described
-// in the ndt7 specification.
-type ConnectionInfo struct {
-	Client string
-	Server string
-	UUID   string `json:",omitempty"`
-	// CC is the congestion algorithm used by the sender of the Measurement
-	// that includes this struct.
-	CC string
-}
+	Client string `json:",omitempty"`
+	Server string `json:",omitempty"`
 
-// The BBRInfo struct contains information measured using BBR. This structure is
-// an extension to the ndt7 specification. Variables here have the same
-// measurement unit that is used by the Linux kernel.
-type BBRInfo struct {
-	inetdiag.BBRInfo
-	ElapsedTime int64
-}
-
-// The TCPInfo struct contains information measured using TCP_INFO. This
-// structure is described in the ndt7 specification.
-type TCPInfo struct {
-	tcp.LinuxTCPInfo
-	ElapsedTime int64
+	Measurement Measurement
 }
