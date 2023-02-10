@@ -2,7 +2,10 @@ module github.com/m-lab/msak
 
 go 1.18
 
-require github.com/m-lab/tcp-info v1.5.3
+require (
+	github.com/m-lab/ndt-server v0.20.17
+	github.com/m-lab/tcp-info v1.5.3
+)
 
 require (
 	github.com/gocarina/gocsv v0.0.0-20221105105431-c8ef78125b99 // indirect

@@ -3,5 +3,7 @@ github.com/gocarina/gocsv v0.0.0-20221105105431-c8ef78125b99 h1:qNAaZUnCulf2xIQc
 github.com/gocarina/gocsv v0.0.0-20221105105431-c8ef78125b99/go.mod h1:5YoVOkjYAQumqlV356Hj3xeYh4BdZuLE0/nRkf2NKkI=
 github.com/m-lab/go v0.1.54 h1:z5FxSrcMT0RJF/EDNjeo77pmvzvhGHJMiyPl4N9Mbzo=
 github.com/m-lab/go v0.1.54/go.mod h1:O1D/EoVarJ8lZt9foANcqcKtwxHatBzUxXFFyC87aQQ=
+github.com/m-lab/ndt-server v0.20.17 h1:gTgHBbBgrpcyaZVGik84LIXYxHItDpvGZLnfOOs+zKA=
+github.com/m-lab/ndt-server v0.20.17/go.mod h1:NQyIilZvNVU3+EPYKmZWuZ2mHOPVwqD7c1gEPtkb+MA=
 github.com/m-lab/tcp-info v1.5.3 h1:4IspTPcNc8D8LNRvuFnID8gDiz+hxPAtYvpKZaiGGe8=
 github.com/m-lab/tcp-info v1.5.3/go.mod h1:bkvI4qbjB6QVC2tsLSHqf5OnIYcmuLEVjo7+8YA56Kg=
