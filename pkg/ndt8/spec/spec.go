@@ -1,12 +1,11 @@
-// Package spec contains constants for the ndt-m protocol. More information can
-// be found in the ndt7 protocol spec, of which ndt-m is an extension.
+// Package spec contains constants for the ndt8 protocol.
 package spec
 
 import "time"
 
 const (
 	// MinMessagesize is the initial size of a Websocket binary message during
-	// an ndt-m test.
+	// an ndt8 test.
 	MinMessageSize = 1 << 10
 
 	// MaxScaledMessageSize is the maximum value of a scaled binary WebSocket
@@ -30,9 +29,9 @@ const (
 	ScalingFraction = 16
 
 	// DownloadPath selects the download subtest.
-	DownloadPath = "/msak/ndtm/download"
+	DownloadPath = "/ndt/v8/download"
 	// UploadPath selects the upload subtest.
-	UploadPath = "/msak/ndtm/upload"
+	UploadPath = "/ndt/v8/upload"
 
 	// MaxRuntime is the maximum runtime of a subtest.
 	MaxRuntime = 15 * time.Second
