@@ -5,7 +5,7 @@ import (
 )
 
 // NDT8Result is the struct that is serialized as JSON to disk as the archival
-// record of an ndt-m test.
+// record of an ndt8 test.
 type NDT8Result struct {
 	// GitShortCommit is the Git commit (short form) of the running server code.
 	GitShortCommit string
