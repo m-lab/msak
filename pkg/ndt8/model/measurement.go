@@ -24,6 +24,10 @@ type WireMeasurement struct {
 // The Measurement struct contains measurement results. This structure is
 // meant to be serialised as JSON and sent as a textual message.
 type Measurement struct {
+	// BytesSent is the number of bytes sent at the application level by the
+	// party sending this Measurement.
+	BytesSent int64 `json:",omitempty"`
+
 	// BytesReceived is the number of bytes received at the application level
 	// by the party sending this Measurement.
 	BytesReceived int64 `json:",omitempty"`
