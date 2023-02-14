@@ -18,7 +18,7 @@ type WireMeasurement struct {
 	// Server is the server's TCP endpoint (ip:port).
 	Server string `json:",omitempty"`
 	// Measurement is the Measurement struct wrapped by this WireMeasurement.
-	Measurement Measurement
+	Measurement
 }
 
 // The Measurement struct contains measurement results. This structure is
