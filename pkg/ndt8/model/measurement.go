@@ -22,8 +22,7 @@ type WireMeasurement struct {
 }
 
 // The Measurement struct contains measurement results. This structure is
-// meant to be serialised as JSON as sent as a textual message. This
-// structure is specified in the ndt7 specification.
+// meant to be serialised as JSON and sent as a textual message.
 type Measurement struct {
 	// BytesReceived is the number of bytes received at the application level
 	// by the party sending this Measurement.
