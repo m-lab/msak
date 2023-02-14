@@ -24,8 +24,7 @@ const (
 
 	// ScalingFraction sets the threshold for scaling binary messages. When
 	// the current binary message size is <= than 1/scalingFactor of the
-	// amount of bytes sent so far, we scale the message. This is documented
-	// in the appendix of the ndt7 specification.
+	// amount of bytes sent so far, we scale the message.
 	ScalingFraction = 16
 
 	// DownloadPath selects the download subtest.
