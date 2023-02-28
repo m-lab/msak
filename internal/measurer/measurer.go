@@ -1,28 +1,27 @@
+// The measurer package provides functions to periodically read kernel metrics
+// for a given network connection and return them over a channel wrapped in an
+// ndt8 Measurement object.
 package measurer
 
 import (
 	"context"
-	"errors"
 	"log"
 	"net"
-	"os"
 	"time"
 
 	"github.com/m-lab/go/memoryless"
 	"github.com/m-lab/go/rtx"
-	"github.com/m-lab/msak/internal/congestion"
 	"github.com/m-lab/msak/internal/netx"
 	"github.com/m-lab/msak/pkg/ndt8/model"
 	"github.com/m-lab/msak/pkg/ndt8/spec"
-	"github.com/m-lab/ndt-server/tcpinfox"
 )
 
 type Connection interface {
 	UnderlyingConn() net.Conn
 }
 
-type ndt8measurer struct {
-	fp        *os.File
+type ndt8Measurer struct {
+	connInfo  netx.ConnInfo
 	ticker    *memoryless.Ticker
 	startTime time.Time
 
@@ -55,14 +54,11 @@ func Start(ctx context.Context, conn Connection) (<-chan model.Measurement, erro
 	// values. Since they are constants, we panic here.
 	rtx.PanicOnError(err, "ticker creation failed (this should never happen)")
 
-	fp, err := netx.GetFile(conn.UnderlyingConn())
-	if err != nil {
-		return nil, err
-	}
-	m := &ndt8measurer{
-		fp:      fp,
-		ticker:  t,
-		dstChan: dst,
+	connInfo := netx.ToConn(conn.UnderlyingConn())
+	m := &ndt8Measurer{
+		connInfo: connInfo,
+		ticker:   t,
+		dstChan:  dst,
 	}
 
 	go func() {
@@ -72,7 +68,7 @@ func Start(ctx context.Context, conn Connection) (<-chan model.Measurement, erro
 	return dst, nil
 }
 
-func (m *ndt8measurer) stop() {
+func (m *ndt8Measurer) stop() {
 	if m.ticker != nil {
 		m.ticker.Stop()
 	}
@@ -81,7 +77,7 @@ func (m *ndt8measurer) stop() {
 	}
 }
 
-func (m *ndt8measurer) loop(ctx context.Context) {
+func (m *ndt8Measurer) loop(ctx context.Context) {
 	log.Println("measurer: start")
 	defer log.Println("measurer: stop")
 	for {
@@ -95,12 +91,14 @@ func (m *ndt8measurer) loop(ctx context.Context) {
 	}
 }
 
-func (m *ndt8measurer) measure(ctx context.Context) {
-	// Note: this is expected to fail if the TCP flow does not use BBR.
-	bbrInfo, _ := congestion.GetBBRInfo(m.fp)
-	tcpInfo, err := tcpinfox.GetTCPInfo(m.fp)
-	if err != nil && !errors.Is(err, tcpinfox.ErrNoSupport) {
-		log.Printf("cannot get tcpInfo for fp %v\n", m.fp)
+func (m *ndt8Measurer) measure(ctx context.Context) {
+	// On non-Linux systems, collecting kernel metrics WILL fail. In that case,
+	// we still want to return a (empty) Measurement.
+
+	bbrInfo, tcpInfo, err := m.connInfo.GetInfo()
+	if err != nil {
+		uuid, _ := m.connInfo.GetUUID()
+		log.Printf("GetInfo() failed for %v", uuid)
 	}
 
 	select {
@@ -109,8 +107,10 @@ func (m *ndt8measurer) measure(ctx context.Context) {
 	case m.dstChan <- model.Measurement{
 		ElapsedTime: time.Since(m.startTime).Microseconds(),
 		BBRInfo:     &bbrInfo,
-		TCPInfo:     tcpInfo,
+		TCPInfo: &model.TCPInfo{
+			LinuxTCPInfo: tcpInfo,
+			ElapsedTime:  m.connInfo.GetAcceptTime().UnixMicro(),
+		},
 	}:
-
 	}
 }

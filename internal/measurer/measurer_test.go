@@ -56,7 +56,7 @@ func TestNdt8Measurer_Start(t *testing.T) {
 
 func TestNdt8Measurer_measure(t *testing.T) {
 	dst := make(chan model.Measurement)
-	measurer := &ndt8measurer{
+	measurer := &ndt8Measurer{
 		dstChan: dst,
 	}
 

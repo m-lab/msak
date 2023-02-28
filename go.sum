@@ -1,3 +1,5 @@
+github.com/araddon/dateparse v0.0.0-20200409225146-d820a6159ab1 h1:TEBmxO80TM04L8IuMWk77SGL1HomBmKTdzdJLLWznxI=
+github.com/araddon/dateparse v0.0.0-20200409225146-d820a6159ab1/go.mod h1:SLqhdZcd+dF3TEVL2RMoob5bBP5R1P1qkox+HtCBgGI=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
@@ -8,6 +10,8 @@ github.com/getlantern/mockconn v0.0.0-20200818071412-cb30d065a848/go.mod h1:+F5G
 github.com/go-test/deep v1.0.6 h1:UHSEyLZUwX9Qoi99vVwvewiMC8mM2bf7XEM2nqvzEn8=
 github.com/gocarina/gocsv v0.0.0-20221105105431-c8ef78125b99 h1:qNAaZUnCulf2xIQc7rM6F3uGYr80h40rtilsVKyAHoM=
 github.com/gocarina/gocsv v0.0.0-20221105105431-c8ef78125b99/go.mod h1:5YoVOkjYAQumqlV356Hj3xeYh4BdZuLE0/nRkf2NKkI=
+github.com/google/uuid v1.2.0 h1:qJYtXnJRWmpe7m/3XlyhrsLrEURqHRM2kxzoxXqyUDs=
+github.com/google/uuid v1.2.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/gorilla/websocket v1.5.0 h1:PPwGk2jz7EePpoHN/+ClbZu8SPxiqlu12wZP/3sWmnc=
 github.com/gorilla/websocket v1.5.0/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
 github.com/m-lab/go v0.1.54 h1:z5FxSrcMT0RJF/EDNjeo77pmvzvhGHJMiyPl4N9Mbzo=
@@ -16,6 +20,8 @@ github.com/m-lab/ndt-server v0.20.17 h1:gTgHBbBgrpcyaZVGik84LIXYxHItDpvGZLnfOOs+
 github.com/m-lab/ndt-server v0.20.17/go.mod h1:NQyIilZvNVU3+EPYKmZWuZ2mHOPVwqD7c1gEPtkb+MA=
 github.com/m-lab/tcp-info v1.5.3 h1:4IspTPcNc8D8LNRvuFnID8gDiz+hxPAtYvpKZaiGGe8=
 github.com/m-lab/tcp-info v1.5.3/go.mod h1:bkvI4qbjB6QVC2tsLSHqf5OnIYcmuLEVjo7+8YA56Kg=
+github.com/m-lab/uuid v1.0.1 h1:+Ku1MQUL9gkSk+eQjLej8qKKtBvAnvZb3TB7QtSP+bw=
+github.com/m-lab/uuid v1.0.1/go.mod h1:Hy/uTQGfYawCYRlxHXh4pNGoZWvvHRg7D4XXvxLbak8=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=

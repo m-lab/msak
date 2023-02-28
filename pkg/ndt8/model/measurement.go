@@ -44,5 +44,12 @@ type Measurement struct {
 	// TCPInfo is an optional struct containing some of the TCP_INFO kernel
 	// metrics for this TCP stream. Only applicable when the party sending this
 	// Measurement has access to it.
-	TCPInfo *tcp.LinuxTCPInfo `json:",omitempty"`
+	TCPInfo *TCPInfo `json:",omitempty"`
+}
+
+// TCPInfo is an extension to Linux's TCPInfo struct that includes the time
+// elapsed since the connection was accepted.
+type TCPInfo struct {
+	tcp.LinuxTCPInfo
+	ElapsedTime int64
 }
