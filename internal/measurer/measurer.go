@@ -56,15 +56,12 @@ func Start(ctx context.Context, conn Connection) (<-chan model.Measurement, erro
 
 	connInfo := netx.ToConnInfo(conn.UnderlyingConn())
 	m := &ndt8Measurer{
-		connInfo: connInfo,
-		ticker:   t,
-		dstChan:  dst,
+		connInfo:  connInfo,
+		ticker:    t,
+		dstChan:   dst,
+		startTime: time.Now(),
 	}
-
-	go func() {
-		m.startTime = time.Now()
-		m.loop(ctx)
-	}()
+	go m.loop(ctx)
 	return dst, nil
 }
 
