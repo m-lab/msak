@@ -47,7 +47,7 @@ func TestListener_Accept(t *testing.T) {
 	}
 	// Check that the AcceptTime is in the past minute (i.e. that it has been
 	// initialized).
-	at := c.GetAcceptTime()
+	at := c.AcceptTime()
 	if time.Since(at) > 1*time.Minute {
 		t.Fatalf("invalid accept time")
 	}
@@ -86,7 +86,7 @@ func TestConn_Congestion(t *testing.T) {
 	if err = c.SetCC("cubic"); err != nil {
 		t.Errorf("SetCC failed: %v", err)
 	}
-	if cc, err := c.GetCC(); err != nil || cc != "cubic" {
+	if cc, err := c.CC(); err != nil || cc != "cubic" {
 		t.Errorf("GetCC failed or unexpected cc: %v", err)
 	}
 }
@@ -108,10 +108,10 @@ func TestConn_GetInfoAndUUID(t *testing.T) {
 	if c, ok = got.(netx.ConnInfo); !ok {
 		t.Fatalf("Listener.Accept() wrong Conn type = %T, want netx.Conn", got)
 	}
-	if _, err := c.GetUUID(); err != nil {
+	if _, err := c.UUID(); err != nil {
 		t.Errorf("GetUUID failed: %v", err)
 	}
-	if _, _, err = c.GetInfo(); err != nil {
+	if _, _, err = c.Info(); err != nil {
 		t.Fatalf("GetInfo failed: %v", err)
 	}
 }

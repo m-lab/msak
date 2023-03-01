@@ -1,6 +1,8 @@
 package netx
 
 import (
+	"crypto/tls"
+	"fmt"
 	"net"
 	"os"
 	"time"
@@ -15,11 +17,24 @@ import (
 )
 
 type ConnInfo interface {
-	GetInfo() (inetdiag.BBRInfo, tcp.LinuxTCPInfo, error)
-	GetAcceptTime() time.Time
-	GetUUID() (string, error)
+	Info() (inetdiag.BBRInfo, tcp.LinuxTCPInfo, error)
+	AcceptTime() time.Time
+	UUID() (string, error)
+	CC() (string, error)
 	SetCC(string) error
-	GetCC() (string, error)
+}
+
+// ToConnInfo is a helper function to convert a net.Conn into a netx.ConnInfo.
+// It panics if netConn does not contain a type supporting ConnInfo.
+func ToConnInfo(netConn net.Conn) ConnInfo {
+	switch t := netConn.(type) {
+	case *Conn:
+		return t
+	case *tls.Conn:
+		return t.NetConn().(*Conn)
+	default:
+		panic(fmt.Sprintf("unsupported connection type: %T", t))
+	}
 }
 
 type Conn struct {
@@ -39,11 +54,11 @@ func (c *Conn) SetCC(cc string) error {
 	return congestion.Set(c.fp, cc)
 }
 
-func (c *Conn) GetCC() (string, error) {
+func (c *Conn) CC() (string, error) {
 	return congestion.Get(c.fp)
 }
 
-func (c *Conn) GetInfo() (inetdiag.BBRInfo, tcp.LinuxTCPInfo, error) {
+func (c *Conn) Info() (inetdiag.BBRInfo, tcp.LinuxTCPInfo, error) {
 	// This is expected to fail if this connection isn't set to use BBR.
 	bbrInfo, _ := congestion.GetBBRInfo(c.fp)
 	// If TCP_INFO isn't available on this platform, this may return
@@ -52,11 +67,11 @@ func (c *Conn) GetInfo() (inetdiag.BBRInfo, tcp.LinuxTCPInfo, error) {
 	return bbrInfo, *tcpInfo, err
 }
 
-func (c *Conn) GetAcceptTime() time.Time {
+func (c *Conn) AcceptTime() time.Time {
 	return c.acceptTime
 }
 
-func (c *Conn) GetUUID() (string, error) {
+func (c *Conn) UUID() (string, error) {
 	uuid, err := uuid.FromFile(c.fp)
 	if err != nil {
 		// fallback: use google/uuid if the platform does not support SO_COOKIE.
