@@ -32,7 +32,7 @@ func (ln *Listener) Accept() (net.Conn, error) {
 	// since the TCP_INFO struct does not include time fields.
 	acceptTime := time.Now()
 	// Note: File() creates a copy which must be independently closed.
-	fp, err := ln.File()
+	fp, err := tc.File()
 	if err != nil {
 		tc.Close()
 		return nil, err
