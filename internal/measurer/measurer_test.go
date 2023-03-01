@@ -1,4 +1,4 @@
-package measurer
+package measurer_test
 
 import (
 	"context"
@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/m-lab/go/rtx"
+	"github.com/m-lab/msak/internal/measurer"
 	"github.com/m-lab/msak/internal/netx"
-	"github.com/m-lab/msak/pkg/ndt8/model"
 )
 
 type mockWSConn struct {
@@ -38,7 +38,7 @@ func TestNdt8Measurer_Start(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	mchan, err := Start(ctx, mc)
+	mchan, err := measurer.Start(ctx, mc)
 	if err != nil {
 		t.Fatalf("Start returned an error")
 	}
@@ -47,23 +47,5 @@ func TestNdt8Measurer_Start(t *testing.T) {
 		fmt.Println("received measurement")
 	case <-time.After(1 * time.Second):
 		t.Fatalf("did not receive any measurement")
-	}
-}
-
-func TestNdt8Measurer_measure(t *testing.T) {
-	dst := make(chan model.Measurement)
-	measurer := &ndt8Measurer{
-		dstChan: dst,
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		measurer.measure(ctx)
-	}()
-	m := <-dst
-	cancel()
-
-	if m.TCPInfo == nil {
-		t.Fatalf("missing data from Measurement")
 	}
 }

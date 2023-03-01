@@ -22,7 +22,6 @@ type Connection interface {
 
 type ndt8Measurer struct {
 	connInfo  netx.ConnInfo
-	ticker    *memoryless.Ticker
 	startTime time.Time
 
 	dstChan chan model.Measurement
@@ -45,6 +44,19 @@ func Start(ctx context.Context, conn Connection) (<-chan model.Measurement, erro
 	// 10000ms / 100 ms/snapshot = 100 snapshots
 	dst := make(chan model.Measurement, 100)
 
+	connInfo := netx.ToConnInfo(conn.UnderlyingConn())
+	m := &ndt8Measurer{
+		connInfo:  connInfo,
+		dstChan:   dst,
+		startTime: time.Now(),
+	}
+	go m.loop(ctx)
+	return dst, nil
+}
+
+func (m *ndt8Measurer) loop(ctx context.Context) {
+	log.Println("measurer: start")
+	defer log.Println("measurer: stop")
 	t, err := memoryless.NewTicker(ctx, memoryless.Config{
 		Min:      spec.MinMeasureInterval,
 		Expected: spec.AvgMeasureInterval,
@@ -53,36 +65,13 @@ func Start(ctx context.Context, conn Connection) (<-chan model.Measurement, erro
 	// This can only error if min/expected/max above are set to invalid
 	// values. Since they are constants, we panic here.
 	rtx.PanicOnError(err, "ticker creation failed (this should never happen)")
+	defer t.Stop()
 
-	connInfo := netx.ToConnInfo(conn.UnderlyingConn())
-	m := &ndt8Measurer{
-		connInfo:  connInfo,
-		ticker:    t,
-		dstChan:   dst,
-		startTime: time.Now(),
-	}
-	go m.loop(ctx)
-	return dst, nil
-}
-
-func (m *ndt8Measurer) stop() {
-	if m.ticker != nil {
-		m.ticker.Stop()
-	}
-	for range m.dstChan {
-		// NOTHING - just drain the channel if needed.
-	}
-}
-
-func (m *ndt8Measurer) loop(ctx context.Context) {
-	log.Println("measurer: start")
-	defer log.Println("measurer: stop")
 	for {
 		select {
 		case <-ctx.Done():
-			m.stop()
 			return
-		case <-m.ticker.C:
+		case <-t.C:
 			m.measure(ctx)
 		}
 	}
