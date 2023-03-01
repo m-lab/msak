@@ -95,9 +95,9 @@ func (m *ndt8Measurer) measure(ctx context.Context) {
 	// On non-Linux systems, collecting kernel metrics WILL fail. In that case,
 	// we still want to return a (empty) Measurement.
 
-	bbrInfo, tcpInfo, err := m.connInfo.GetInfo()
+	bbrInfo, tcpInfo, err := m.connInfo.Info()
 	if err != nil {
-		uuid, _ := m.connInfo.GetUUID()
+		uuid, _ := m.connInfo.UUID()
 		log.Printf("GetInfo() failed for %v", uuid)
 	}
 
@@ -109,7 +109,7 @@ func (m *ndt8Measurer) measure(ctx context.Context) {
 		BBRInfo:     &bbrInfo,
 		TCPInfo: &model.TCPInfo{
 			LinuxTCPInfo: tcpInfo,
-			ElapsedTime:  m.connInfo.GetAcceptTime().UnixMicro(),
+			ElapsedTime:  m.connInfo.AcceptTime().UnixMicro(),
 		},
 	}:
 	}
