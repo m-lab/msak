@@ -1,6 +1,8 @@
 package netx
 
 import (
+	"crypto/tls"
+	"fmt"
 	"net"
 	"os"
 	"time"
@@ -20,6 +22,19 @@ type ConnInfo interface {
 	GetUUID() (string, error)
 	SetCC(string) error
 	GetCC() (string, error)
+}
+
+// ToConnInfo is a helper function to convert a net.Conn into a netx.ConnInfo.
+// It panics if netConn does not contain a type supporting ConnInfo.
+func ToConnInfo(netConn net.Conn) ConnInfo {
+	switch t := netConn.(type) {
+	case *Conn:
+		return t
+	case *tls.Conn:
+		return t.NetConn().(*Conn)
+	default:
+		panic(fmt.Sprintf("unsupported connection type: %T", t))
+	}
 }
 
 type Conn struct {

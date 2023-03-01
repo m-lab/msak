@@ -1,8 +1,6 @@
 package netx
 
 import (
-	"crypto/tls"
-	"fmt"
 	"net"
 	"time"
 )
@@ -44,17 +42,4 @@ func (ln *Listener) Accept() (net.Conn, error) {
 		acceptTime: acceptTime,
 	}
 	return mc, nil
-}
-
-// ToConnInfo is a helper function to convert a net.Conn into a netx.ConnInfo.
-// It panics if netConn does not contain a type supporting ConnInfo.
-func ToConnInfo(netConn net.Conn) ConnInfo {
-	switch t := netConn.(type) {
-	case *Conn:
-		return t
-	case *tls.Conn:
-		return t.NetConn().(*Conn)
-	default:
-		panic(fmt.Sprintf("unsupported connection type: %T", t))
-	}
 }
