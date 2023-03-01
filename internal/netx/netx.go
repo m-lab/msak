@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
-	"os"
 	"time"
 )
 
@@ -18,10 +17,6 @@ func NewListener(l *net.TCPListener) *Listener {
 	return &Listener{
 		TCPListener: l,
 	}
-}
-
-func (ln *Listener) File() (*os.File, error) {
-	return ln.TCPListener.File()
 }
 
 // Accept accepts a connection and returns a netx.Conn which includes the
@@ -51,12 +46,12 @@ func (ln *Listener) Accept() (net.Conn, error) {
 	return mc, nil
 }
 
-// ToConn is a helper function to convert a net.Conn into a netx.ConnInfo.
-// It panics if conn does not contain a type supporting the ConnInfo interface.
-func ToConn(netConn net.Conn) ConnInfo {
+// ToConnInfo is a helper function to convert a net.Conn into a netx.ConnInfo.
+// It panics if netConn does not contain a type supporting ConnInfo.
+func ToConnInfo(netConn net.Conn) ConnInfo {
 	switch t := netConn.(type) {
-	case *net.TCPConn:
-		return netConn.(*Conn)
+	case *Conn:
+		return t
 	case *tls.Conn:
 		return t.NetConn().(*Conn)
 	default:

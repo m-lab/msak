@@ -54,7 +54,7 @@ func Start(ctx context.Context, conn Connection) (<-chan model.Measurement, erro
 	// values. Since they are constants, we panic here.
 	rtx.PanicOnError(err, "ticker creation failed (this should never happen)")
 
-	connInfo := netx.ToConn(conn.UnderlyingConn())
+	connInfo := netx.ToConnInfo(conn.UnderlyingConn())
 	m := &ndt8Measurer{
 		connInfo: connInfo,
 		ticker:   t,

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/m-lab/go/rtx"
+	"github.com/m-lab/msak/internal/netx"
 	"github.com/m-lab/msak/pkg/ndt8/model"
 )
 
@@ -29,10 +30,14 @@ func TestNdt8Measurer_Start(t *testing.T) {
 	conn, err := net.FileConn(fp)
 	rtx.Must(err, "cannot create net.Conn")
 
+	netxConn := &netx.Conn{
+		Conn: conn,
+	}
 	mc := &mockWSConn{
-		underlyingConn: conn,
+		underlyingConn: netxConn,
 	}
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	mchan, err := Start(ctx, mc)
 	if err != nil {
 		t.Fatalf("Start returned an error")
@@ -42,15 +47,6 @@ func TestNdt8Measurer_Start(t *testing.T) {
 		fmt.Println("received measurement")
 	case <-time.After(1 * time.Second):
 		t.Fatalf("did not receive any measurement")
-	}
-	cancel()
-	mc.underlyingConn = nil
-	mchan, err = Start(ctx, mc)
-	if err == nil {
-		t.Fatalf("expected error, got nil")
-	}
-	if mchan != nil {
-		t.Fatalf("expected nil, got a value")
 	}
 }
 
