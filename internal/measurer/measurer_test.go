@@ -38,10 +38,7 @@ func TestNdt8Measurer_Start(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	mchan, err := measurer.Start(ctx, mc)
-	if err != nil {
-		t.Fatalf("Start returned an error")
-	}
+	mchan := measurer.Start(ctx, mc)
 	select {
 	case <-mchan:
 		fmt.Println("received measurement")

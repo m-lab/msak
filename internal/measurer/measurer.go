@@ -31,11 +31,8 @@ type ndt8Measurer struct {
 // bbr_info kernel structs for the connection, if available, and sends them
 // wrapped in a Measurement over the returned channel.
 //
-// It returns an error if the file pointer associated with the connection
-// cannot be obtained.
-//
 // The context determines the measurer goroutine's lifetime.
-func Start(ctx context.Context, conn Connection) (<-chan model.Measurement, error) {
+func Start(ctx context.Context, conn Connection) <-chan model.Measurement {
 	// Implementation note: this channel must be buffered to account for slow
 	// readers. The "typical" reader is an ndt8 send or receive loop, which
 	// might be busy with data r/w. The buffer size corresponds to at least 10
@@ -51,7 +48,7 @@ func Start(ctx context.Context, conn Connection) (<-chan model.Measurement, erro
 		startTime: time.Now(),
 	}
 	go m.loop(ctx)
-	return dst, nil
+	return dst
 }
 
 func (m *ndt8Measurer) loop(ctx context.Context) {
@@ -95,7 +92,7 @@ func (m *ndt8Measurer) measure(ctx context.Context) {
 		BBRInfo:     &bbrInfo,
 		TCPInfo: &model.TCPInfo{
 			LinuxTCPInfo: tcpInfo,
-			ElapsedTime:  m.connInfo.AcceptTime().UnixMicro(),
+			ElapsedTime:  time.Since(m.connInfo.AcceptTime()).Microseconds(),
 		},
 	}:
 	}
