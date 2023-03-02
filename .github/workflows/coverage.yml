@@ -16,7 +16,7 @@ jobs:
           path-to-profile: msak.cov
           parallel: true
   finish:
-    needs: test
+    needs: coverage
     runs-on: ubuntu-latest
     steps:
       - uses: shogo82148/actions-goveralls@v1
