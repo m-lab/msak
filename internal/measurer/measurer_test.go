@@ -4,27 +4,29 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"os"
-	"syscall"
 	"testing"
 	"time"
 
-	"github.com/m-lab/go/rtx"
 	"github.com/m-lab/msak/internal/measurer"
 	"github.com/m-lab/msak/internal/netx"
 )
 
-func TestNdt8MeasurerUnix_Start(t *testing.T) {
-	// Create a TCP socket to test. net.FileConn is only supported on unix-like
-	// operating systems.
-	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM, 0)
-	rtx.Must(err, "cannot create test socket")
-	fp := os.NewFile(uintptr(fd), "test-socket")
-	conn, err := net.FileConn(fp)
-	rtx.Must(err, "cannot create net.Conn")
+type mockWSConn struct {
+	underlyingConn net.Conn
+}
+
+func (c *mockWSConn) UnderlyingConn() net.Conn {
+	return c.underlyingConn
+}
+
+func TestNdt8Measurer_Start(t *testing.T) {
+	// Use a net.Pipe to test. This has the advantage that it works on every
+	// platform, allowing to test the measurer functionality on e.g. Windows,
+	// but TCPInfo/BBRInfo retrieval will never work.
+	client, _ := net.Pipe()
 
 	netxConn := &netx.Conn{
-		Conn: conn,
+		Conn: client,
 	}
 	mc := &mockWSConn{
 		underlyingConn: netxConn,
