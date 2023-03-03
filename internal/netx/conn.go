@@ -65,6 +65,8 @@ func (c *Conn) GetCC() (string, error) {
 	return congestion.Get(c.fp)
 }
 
+// Info returns the BBRInfo and TCPInfo structs associated with the underlying
+// socket. It returns an error if TCPInfo cannot be read.
 func (c *Conn) Info() (inetdiag.BBRInfo, tcp.LinuxTCPInfo, error) {
 	// This is expected to fail if this connection isn't set to use BBR.
 	bbrInfo, _ := congestion.GetBBRInfo(c.fp)
@@ -74,10 +76,13 @@ func (c *Conn) Info() (inetdiag.BBRInfo, tcp.LinuxTCPInfo, error) {
 	return bbrInfo, *tcpInfo, err
 }
 
+// AcceptTime returns this connection's accept time.
 func (c *Conn) AcceptTime() time.Time {
 	return c.acceptTime
 }
 
+// UUID returns an M-Lab UUID. On platforms not supporting SO_COOKIE, it
+// returns a google/uuid as a fallback. If the fallback fails, it panics.
 func (c *Conn) UUID() (string, error) {
 	uuid, err := uuid.FromFile(c.fp)
 	if err != nil {
