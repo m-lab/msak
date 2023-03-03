@@ -36,7 +36,7 @@ const (
 	MaxRuntime = 15 * time.Second
 
 	// SecWebSocketProtocol is the value of the Sec-WebSocket-Protocol header.
-	SecWebSocketProtocol = "net.measurementlab.ndt.m"
+	SecWebSocketProtocol = "net.measurementlab.ndt.v8"
 )
 
 // SubtestKind indicates the subtest kind
