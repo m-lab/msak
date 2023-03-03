@@ -11,6 +11,7 @@ type Listener struct {
 	*net.TCPListener
 }
 
+// NewListener returns a netx.Listener.
 func NewListener(l *net.TCPListener) *Listener {
 	return &Listener{
 		TCPListener: l,
@@ -29,7 +30,8 @@ func (ln *Listener) Accept() (net.Conn, error) {
 	// closest thing we can get to a reference "start time" for TCPInfo metrics
 	// since the TCP_INFO struct does not include time fields.
 	acceptTime := time.Now()
-	// Note: File() creates a copy which must be independently closed.
+	// Note: File() duplicates the underlying file descriptor. This duplicate
+	// must be independently closed.
 	fp, err := tc.File()
 	if err != nil {
 		tc.Close()

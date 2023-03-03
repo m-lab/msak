@@ -86,7 +86,7 @@ func TestConn_Congestion(t *testing.T) {
 	if err = c.SetCC("cubic"); err != nil {
 		t.Errorf("SetCC failed: %v", err)
 	}
-	if cc, err := c.CC(); err != nil || cc != "cubic" {
+	if cc, err := c.GetCC(); err != nil || cc != "cubic" {
 		t.Errorf("GetCC failed or unexpected cc: %v", err)
 	}
 }
@@ -122,7 +122,9 @@ func TestToConnInfo(t *testing.T) {
 	// do that, we use it to validate the regular HTTP server netx.Conn as
 	// well.
 
-	fakeHTTPReply := "HTTP/1.0 200 OK\n\ntest"
+	const fakeHTTPReplyBody = "test"
+
+	fakeHTTPReply := "HTTP/1.0 200 OK\n\n" + fakeHTTPReplyBody
 	tests := []struct {
 		name    string
 		conn    net.Conn
@@ -186,7 +188,7 @@ func TestToConnInfo(t *testing.T) {
 			b, err := ioutil.ReadAll(resp.Body)
 			rtx.Must(err, "failed to read reply from %s", s.URL)
 
-			if string(b) != "test" {
+			if string(b) != fakeHTTPReplyBody {
 				t.Errorf("failed to receive reply from server")
 			}
 		})

@@ -16,11 +16,12 @@ import (
 	"github.com/m-lab/uuid"
 )
 
+// ConnInfo provides operations on a net.Conn's underlying file descriptor.
 type ConnInfo interface {
 	Info() (inetdiag.BBRInfo, tcp.LinuxTCPInfo, error)
 	AcceptTime() time.Time
 	UUID() (string, error)
-	CC() (string, error)
+	GetCC() (string, error)
 	SetCC(string) error
 }
 
@@ -37,6 +38,8 @@ func ToConnInfo(netConn net.Conn) ConnInfo {
 	}
 }
 
+// Conn is an extended net.Conn that stores its accept time and a copy of the
+// underlying socket's file descriptor.
 type Conn struct {
 	net.Conn
 
@@ -50,11 +53,15 @@ func (c *Conn) Close() error {
 	return c.Conn.Close()
 }
 
+// SetCC sets the congestion control algorithm on the underlying file
+// descriptor.
 func (c *Conn) SetCC(cc string) error {
 	return congestion.Set(c.fp, cc)
 }
 
-func (c *Conn) CC() (string, error) {
+// GetCC gets the current congestion control algorithm from the underlying
+// file descriptor.
+func (c *Conn) GetCC() (string, error) {
 	return congestion.Get(c.fp)
 }
 
