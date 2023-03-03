@@ -16,11 +16,12 @@ import (
 	"github.com/m-lab/uuid"
 )
 
+// ConnInfo provides operations on a net.Conn's underlying file descriptor.
 type ConnInfo interface {
 	Info() (inetdiag.BBRInfo, tcp.LinuxTCPInfo, error)
 	AcceptTime() time.Time
 	UUID() (string, error)
-	CC() (string, error)
+	GetCC() (string, error)
 	SetCC(string) error
 }
 
@@ -37,6 +38,8 @@ func ToConnInfo(netConn net.Conn) ConnInfo {
 	}
 }
 
+// Conn is an extended net.Conn that stores its accept time and a copy of the
+// underlying socket's file descriptor.
 type Conn struct {
 	net.Conn
 
@@ -50,14 +53,20 @@ func (c *Conn) Close() error {
 	return c.Conn.Close()
 }
 
+// SetCC sets the congestion control algorithm on the underlying file
+// descriptor.
 func (c *Conn) SetCC(cc string) error {
 	return congestion.Set(c.fp, cc)
 }
 
-func (c *Conn) CC() (string, error) {
+// GetCC gets the current congestion control algorithm from the underlying
+// file descriptor.
+func (c *Conn) GetCC() (string, error) {
 	return congestion.Get(c.fp)
 }
 
+// Info returns the BBRInfo and TCPInfo structs associated with the underlying
+// socket. It returns an error if TCPInfo cannot be read.
 func (c *Conn) Info() (inetdiag.BBRInfo, tcp.LinuxTCPInfo, error) {
 	// This is expected to fail if this connection isn't set to use BBR.
 	bbrInfo, _ := congestion.GetBBRInfo(c.fp)
@@ -67,10 +76,13 @@ func (c *Conn) Info() (inetdiag.BBRInfo, tcp.LinuxTCPInfo, error) {
 	return bbrInfo, *tcpInfo, err
 }
 
+// AcceptTime returns this connection's accept time.
 func (c *Conn) AcceptTime() time.Time {
 	return c.acceptTime
 }
 
+// UUID returns an M-Lab UUID. On platforms not supporting SO_COOKIE, it
+// returns a google/uuid as a fallback. If the fallback fails, it panics.
 func (c *Conn) UUID() (string, error) {
 	uuid, err := uuid.FromFile(c.fp)
 	if err != nil {
