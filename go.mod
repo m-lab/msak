@@ -1,6 +1,6 @@
 module github.com/m-lab/msak
 
-go 1.18
+go 1.19
 
 require (
 	github.com/getlantern/httptest v0.0.0-20161025015934-4b40f4c7e590
