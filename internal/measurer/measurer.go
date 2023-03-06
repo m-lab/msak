@@ -16,10 +16,6 @@ import (
 	"github.com/m-lab/msak/pkg/ndt8/spec"
 )
 
-type Connection interface {
-	UnderlyingConn() net.Conn
-}
-
 type ndt8Measurer struct {
 	connInfo  netx.ConnInfo
 	startTime time.Time
@@ -32,7 +28,8 @@ type ndt8Measurer struct {
 // wrapped in a Measurement over the returned channel.
 //
 // The context determines the measurer goroutine's lifetime.
-func Start(ctx context.Context, conn Connection) <-chan model.Measurement {
+// If passed a connection that is not a netx.Conn, this function will panic.
+func Start(ctx context.Context, conn net.Conn) <-chan model.Measurement {
 	// Implementation note: this channel must be buffered to account for slow
 	// readers. The "typical" reader is an ndt8 send or receive loop, which
 	// might be busy with data r/w. The buffer size corresponds to at least 10
@@ -41,7 +38,7 @@ func Start(ctx context.Context, conn Connection) <-chan model.Measurement {
 	// 10000ms / 100 ms/snapshot = 100 snapshots
 	dst := make(chan model.Measurement, 100)
 
-	connInfo := netx.ToConnInfo(conn.UnderlyingConn())
+	connInfo := netx.ToConnInfo(conn)
 	m := &ndt8Measurer{
 		connInfo:  connInfo,
 		dstChan:   dst,

@@ -11,14 +11,6 @@ import (
 	"github.com/m-lab/msak/internal/netx"
 )
 
-type mockWSConn struct {
-	underlyingConn net.Conn
-}
-
-func (c *mockWSConn) UnderlyingConn() net.Conn {
-	return c.underlyingConn
-}
-
 func TestNdt8Measurer_Start(t *testing.T) {
 	// Use a net.Pipe to test. This has the advantage that it works on every
 	// platform, allowing to test the measurer functionality on e.g. Windows,
@@ -28,12 +20,9 @@ func TestNdt8Measurer_Start(t *testing.T) {
 	netxConn := &netx.Conn{
 		Conn: client,
 	}
-	mc := &mockWSConn{
-		underlyingConn: netxConn,
-	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	mchan := measurer.Start(ctx, mc)
+	mchan := measurer.Start(ctx, netxConn)
 	select {
 	case <-mchan:
 		fmt.Println("received measurement")
