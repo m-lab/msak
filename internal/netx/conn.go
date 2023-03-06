@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"sync/atomic"
 	"time"
 
 	guuid "github.com/google/uuid"
@@ -18,6 +19,7 @@ import (
 
 // ConnInfo provides operations on a net.Conn's underlying file descriptor.
 type ConnInfo interface {
+	ByteCounters() (uint64, uint64)
 	Info() (inetdiag.BBRInfo, tcp.LinuxTCPInfo, error)
 	AcceptTime() time.Time
 	UUID() (string, error)
@@ -38,13 +40,34 @@ func ToConnInfo(netConn net.Conn) ConnInfo {
 	}
 }
 
-// Conn is an extended net.Conn that stores its accept time and a copy of the
-// underlying socket's file descriptor.
+// Conn is an extended net.Conn that stores its accept time, a copy of the
+// underlying socket's file descriptor, and counters for read/written bytes.
 type Conn struct {
 	net.Conn
 
-	fp         *os.File
-	acceptTime time.Time
+	fp           *os.File
+	acceptTime   time.Time
+	bytesRead    atomic.Uint64
+	bytesWritten atomic.Uint64
+}
+
+// Read reads from the underlying net.Conn and updates the read bytes counter.
+func (c *Conn) Read(b []byte) (int, error) {
+	n, err := c.Conn.Read(b)
+	c.bytesRead.Add(uint64(n))
+	return n, err
+}
+
+// Write writes to the underlying net.Conn and updates the written bytes counter.
+func (c *Conn) Write(b []byte) (int, error) {
+	n, err := c.Conn.Write(b)
+	c.bytesWritten.Add(uint64(n))
+	return n, err
+}
+
+// ByteCounters returns the read and written byte counters, in this order.
+func (c *Conn) ByteCounters() (uint64, uint64) {
+	return c.bytesRead.Load(), c.bytesWritten.Load()
 }
 
 // Close closes the underlying net.Conn and the duplicate file descriptor.

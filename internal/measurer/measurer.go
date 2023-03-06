@@ -17,8 +17,10 @@ import (
 )
 
 type ndt8Measurer struct {
-	connInfo  netx.ConnInfo
-	startTime time.Time
+	connInfo           netx.ConnInfo
+	startTime          time.Time
+	bytesReadOffset    uint64
+	bytesWrittenOffset uint64
 
 	dstChan chan model.Measurement
 }
@@ -39,10 +41,13 @@ func Start(ctx context.Context, conn net.Conn) <-chan model.Measurement {
 	dst := make(chan model.Measurement, 100)
 
 	connInfo := netx.ToConnInfo(conn)
+	read, written := connInfo.ByteCounters()
 	m := &ndt8Measurer{
-		connInfo:  connInfo,
-		dstChan:   dst,
-		startTime: time.Now(),
+		connInfo:           connInfo,
+		dstChan:            dst,
+		startTime:          time.Now(),
+		bytesReadOffset:    read,
+		bytesWrittenOffset: written,
 	}
 	go m.loop(ctx)
 	return dst
@@ -74,18 +79,27 @@ func (m *ndt8Measurer) loop(ctx context.Context) {
 func (m *ndt8Measurer) measure(ctx context.Context) {
 	// On non-Linux systems, collecting kernel metrics WILL fail. In that case,
 	// we still want to return a (empty) Measurement.
-
 	bbrInfo, tcpInfo, err := m.connInfo.Info()
 	if err != nil {
 		log.Printf("GetInfo() failed for context %p: %v", ctx, err)
 	}
 
+	// Read current bytes counters.
+	read, written := m.connInfo.ByteCounters()
+
 	select {
 	case <-ctx.Done():
 		// NOTHING
 	case m.dstChan <- model.Measurement{
-		ElapsedTime: time.Since(m.startTime).Microseconds(),
-		BBRInfo:     &bbrInfo,
+		ElapsedTime: uint64(time.Since(m.startTime).Microseconds()),
+		// Byte counters are offset by their initial value, so that the
+		// BytesSent/BytesReceived fields represent "application-level bytes
+		// sent/received over the connection since the beginning of the
+		// measurement" as precisely as possible. Note that this includes the
+		// WebSocket framing overhead.
+		BytesSent:     written - m.bytesWrittenOffset,
+		BytesReceived: read - m.bytesReadOffset,
+		BBRInfo:       &bbrInfo,
 		TCPInfo: &model.TCPInfo{
 			LinuxTCPInfo: tcpInfo,
 			ElapsedTime:  time.Since(m.connInfo.AcceptTime()).Microseconds(),

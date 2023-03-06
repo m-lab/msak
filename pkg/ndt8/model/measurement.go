@@ -26,15 +26,15 @@ type WireMeasurement struct {
 type Measurement struct {
 	// BytesSent is the number of bytes sent at the application level by the
 	// party sending this Measurement.
-	BytesSent int64 `json:",omitempty"`
+	BytesSent uint64 `json:",omitempty"`
 
 	// BytesReceived is the number of bytes received at the application level
 	// by the party sending this Measurement.
-	BytesReceived int64 `json:",omitempty"`
+	BytesReceived uint64 `json:",omitempty"`
 
 	// ElapsedTime is the time elapsed since the start of the measurement
 	// according to the party sending this Measurement.
-	ElapsedTime int64 `json:",omitempty"`
+	ElapsedTime uint64 `json:",omitempty"`
 
 	// BBRInfo is an optional struct containing BBR metrics. Only applicable
 	// when the congestion control algorithm used by the party sending this
