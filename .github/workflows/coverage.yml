@@ -1,0 +1,26 @@
+name: coverage
+on:
+  pull_request:
+  push:
+    branches:
+      - "main"
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v1
+        with:
+          go-version: "1.18.3"
+      - uses: actions/checkout@v2
+      - run: go test -race -v -coverprofile=msak.cov -coverpkg=./... ./...
+      - uses: shogo82148/actions-goveralls@v1
+        with:
+          path-to-profile: msak.cov
+          parallel: true
+  finish:
+    needs: coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: shogo82148/actions-goveralls@v1
+        with:
+          parallel-finished: true
