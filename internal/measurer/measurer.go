@@ -52,8 +52,8 @@ func Start(ctx context.Context, conn Connection) <-chan model.Measurement {
 }
 
 func (m *ndt8Measurer) loop(ctx context.Context) {
-	log.Println("measurer: start")
-	defer log.Println("measurer: stop")
+	log.Printf("measurer: start (context %p)", ctx)
+	defer log.Printf("measurer: stop (context %p)", ctx)
 	t, err := memoryless.NewTicker(ctx, memoryless.Config{
 		Min:      spec.MinMeasureInterval,
 		Expected: spec.AvgMeasureInterval,
@@ -80,8 +80,7 @@ func (m *ndt8Measurer) measure(ctx context.Context) {
 
 	bbrInfo, tcpInfo, err := m.connInfo.Info()
 	if err != nil {
-		uuid, _ := m.connInfo.UUID()
-		log.Printf("GetInfo() failed for %v", uuid)
+		log.Printf("GetInfo() failed for context %p: %v", ctx, err)
 	}
 
 	select {
