@@ -19,8 +19,8 @@ import (
 type ndt8Measurer struct {
 	connInfo            netx.ConnInfo
 	startTime           time.Time
-	bytesReadAtStart    uint64
-	bytesWrittenAtStart uint64
+	bytesReadAtStart    int64
+	bytesWrittenAtStart int64
 
 	dstChan chan model.Measurement
 }
@@ -51,8 +51,8 @@ func Start(ctx context.Context, conn net.Conn) <-chan model.Measurement {
 		// sent/received over the connection since the beginning of the
 		// measurement" as precisely as possible. Note that this includes the
 		// WebSocket framing overhead.
-		bytesReadAtStart:    read,
-		bytesWrittenAtStart: written,
+		bytesReadAtStart:    int64(read),
+		bytesWrittenAtStart: int64(written),
 	}
 	go m.loop(ctx)
 	return dst
@@ -90,15 +90,15 @@ func (m *ndt8Measurer) measure(ctx context.Context) {
 	}
 
 	// Read current bytes counters.
-	read, written := m.connInfo.ByteCounters()
+	totalRead, totalWritten := m.connInfo.ByteCounters()
 
 	select {
 	case <-ctx.Done():
 		// NOTHING
 	case m.dstChan <- model.Measurement{
-		ElapsedTime:   uint64(time.Since(m.startTime).Microseconds()),
-		BytesSent:     written - m.bytesWrittenAtStart,
-		BytesReceived: read - m.bytesReadAtStart,
+		ElapsedTime:   time.Since(m.startTime).Microseconds(),
+		BytesSent:     int64(totalWritten) - m.bytesWrittenAtStart,
+		BytesReceived: int64(totalRead) - m.bytesReadAtStart,
 		BBRInfo:       &bbrInfo,
 		TCPInfo: &model.TCPInfo{
 			LinuxTCPInfo: tcpInfo,
