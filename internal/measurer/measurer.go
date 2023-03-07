@@ -17,10 +17,10 @@ import (
 )
 
 type ndt8Measurer struct {
-	connInfo           netx.ConnInfo
-	startTime          time.Time
-	bytesReadOffset    uint64
-	bytesWrittenOffset uint64
+	connInfo            netx.ConnInfo
+	startTime           time.Time
+	bytesReadAtStart    uint64
+	bytesWrittenAtStart uint64
 
 	dstChan chan model.Measurement
 }
@@ -43,11 +43,16 @@ func Start(ctx context.Context, conn net.Conn) <-chan model.Measurement {
 	connInfo := netx.ToConnInfo(conn)
 	read, written := connInfo.ByteCounters()
 	m := &ndt8Measurer{
-		connInfo:           connInfo,
-		dstChan:            dst,
-		startTime:          time.Now(),
-		bytesReadOffset:    read,
-		bytesWrittenOffset: written,
+		connInfo:  connInfo,
+		dstChan:   dst,
+		startTime: time.Now(),
+		// Byte counters are offset by their initial value, so that the
+		// BytesSent/BytesReceived fields represent "application-level bytes
+		// sent/received over the connection since the beginning of the
+		// measurement" as precisely as possible. Note that this includes the
+		// WebSocket framing overhead.
+		bytesReadAtStart:    read,
+		bytesWrittenAtStart: written,
 	}
 	go m.loop(ctx)
 	return dst
@@ -91,14 +96,9 @@ func (m *ndt8Measurer) measure(ctx context.Context) {
 	case <-ctx.Done():
 		// NOTHING
 	case m.dstChan <- model.Measurement{
-		ElapsedTime: uint64(time.Since(m.startTime).Microseconds()),
-		// Byte counters are offset by their initial value, so that the
-		// BytesSent/BytesReceived fields represent "application-level bytes
-		// sent/received over the connection since the beginning of the
-		// measurement" as precisely as possible. Note that this includes the
-		// WebSocket framing overhead.
-		BytesSent:     written - m.bytesWrittenOffset,
-		BytesReceived: read - m.bytesReadOffset,
+		ElapsedTime:   uint64(time.Since(m.startTime).Microseconds()),
+		BytesSent:     written - m.bytesWrittenAtStart,
+		BytesReceived: read - m.bytesReadAtStart,
 		BBRInfo:       &bbrInfo,
 		TCPInfo: &model.TCPInfo{
 			LinuxTCPInfo: tcpInfo,
