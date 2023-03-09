@@ -4,14 +4,15 @@ on:
   push:
     branches:
       - "main"
+
 jobs:
   coverage:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-go@v1
+      - uses: actions/setup-go@v3
         with:
           go-version: "1.19.6"
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - run: go test -race -v -coverprofile=msak.cov -coverpkg=./... ./...
       - uses: shogo82148/actions-goveralls@v1
         with:
