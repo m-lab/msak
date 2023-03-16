@@ -1,0 +1,64 @@
+issues:
+  exclude-rules:
+    - path: test/
+      linters:
+        - cyclop
+        - forbidigo
+        - funlen
+        - gocyclo
+        - gosec
+    - path: testhelper/
+      linters:
+        - forbidigo
+        - wrapcheck
+    - path: _test\.go
+      linters:
+        - funlen
+        - ireturn
+        - paralleltest
+        - testpackage
+linters-settings:
+  cyclop:
+    max-complexity: 15
+  funlen:
+    lines: 120
+  gocyclo:
+    min-complexity: 15
+  gofumpt:
+    lang-version: 1.19
+  gosec:
+    excludes:
+      - G306 # Expect WriteFile permissions to be 0600 or less
+  lll:
+    line-length: 160
+  revive:
+    severity: warning
+  varnamelen:
+    min-name-length: 1
+  wsl:
+    allow-assign-and-anything: true
+linters:
+  enable-all: true
+  disable:
+     - deadcode         # deprecated since v1.49.0, replaced by unused
+     - exhaustivestruct # deprecated since v1.46.0, replaced by exhaustruct
+     - exhaustruct      # not useful
+     - gci              # N/A https://github.com/daixiang0/gci
+     - gochecknoglobals # N/A https://github.com/leighmcculloch/gochecknoglobals
+     - gochecknoinits   # N/A https://github.com/leighmcculloch/gochecknoinits
+     - gofumpt          # N/A https://github.com/golangci/golangci-lint/issues/2711
+     - golint           # deprecated since v1.41.0, replaced by revive
+     - gomnd            # N/A https://github.com/tommy-muehle/go-mnd
+     - ifshort          # deprecated since v1.48.0
+     - interfacer       # deprecated since v1.38.0
+     - lll              # N/A long lines are OK
+     - maligned         # deprecated since v1.38.0, replaced by govet 'fieldalignment'
+     - nlreturn         # N/A https://github.com/ssgreg/nlreturn
+     - nosnakecase      # deprecated since v1.48.1, replaced by revive(var-naming)
+     - rowserrcheck     # disabled because of generics
+     - scopelint        # deprecated since v1.39.0, replaced by exportloopref
+     - sqlclosecheck    # disabled because of generics
+     - structcheck      # deprecated since v1.49.0, replaced by unused, disabled because of generics
+     - varcheck         # deprecated since v1.49.0, replaced by unused
+     - wastedassign     # disabled because of generics
+     - wsl              # N/A https://github.com/bombsimon/wsl
