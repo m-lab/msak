@@ -85,12 +85,12 @@ func (p *Protocol) makePreparedMessage(size int) (*websocket.PreparedMessage, er
 	return websocket.NewPreparedMessage(websocket.BinaryMessage, data)
 }
 
-// Send starts the send/receive loop of the ndt8 protocol. The context's lifetime
+// SendLoop starts the send/receive loop of the ndt8 protocol. The context's lifetime
 // determines how long to run for. It returns one channel for sender-side
 // measurements, one channel for receiver-side measurements and one channel for
 // errors. While the measurements channels could be ignored, the errors channel
 // MUST be drained by the caller.
-func (p *Protocol) Send(ctx context.Context) (<-chan model.WireMeasurement,
+func (p *Protocol) SendLoop(ctx context.Context) (<-chan model.WireMeasurement,
 	<-chan model.WireMeasurement, <-chan error) {
 	// In no case this method will send for longer than spec.MaxRuntime.
 	// Context cancelation will normally happen sooner than that.
@@ -136,7 +136,7 @@ func (p *Protocol) ReceiverLoop(ctx context.Context) (<-chan model.WireMeasureme
 	errCh := make(chan error, 2)
 
 	go p.receiver(ctx, receiverCh, errCh)
-	go p.sendCounterflow(ctx, measurerCh, errCh)
+	go p.sendCounterflow(ctx, measurerCh, senderCh, errCh)
 	return senderCh, receiverCh, errCh
 }
 
@@ -167,7 +167,8 @@ func (p *Protocol) receiver(ctx context.Context,
 }
 
 func (p *Protocol) sendCounterflow(ctx context.Context,
-	measurerCh <-chan model.Measurement, errCh chan<- error) {
+	measurerCh <-chan model.Measurement, results chan<- model.WireMeasurement,
+	errCh chan<- error) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -186,6 +187,12 @@ func (p *Protocol) sendCounterflow(ctx context.Context,
 				log.Printf("failed to write measurement JSON (ctx: %p, err: %v)", ctx, err)
 				errCh <- err
 				return
+			}
+			// This send is non-blocking in case there is no one to read the
+			// Measurement message and the channel's buffer is full.
+			select {
+			case results <- wireMeasurement:
+			default:
 			}
 		}
 	}

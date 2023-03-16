@@ -58,70 +58,77 @@ func TestProtocol_Upgrade(t *testing.T) {
 	}
 }
 
-func TestProtocol_Send(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/ndt/v8/download", bytes.NewReader([]byte{}))
-	req.Header.Add("Sec-WebSocket-Protocol", spec.SecWebSocketProtocol)
-	req.Header.Add("Sec-Websocket-Version", "13")
-	req.Header.Add("Sec-WebSocket-Key", "test")
-	req.Header.Add("Connection", "upgrade")
-	req.Header.Add("Upgrade", "websocket")
-
-	client, server := net.Pipe()
-	serverConn := &netx.Conn{Conn: server}
-	clientConn := &netx.Conn{Conn: client}
-
-	rw := httptest.NewRecorder()
-
-	hjrw := HijackableResponseWriter{
-		ResponseWriter: rw,
-		Conn:           serverConn,
-		in:             bufio.NewReader(&bytes.Buffer{}),
-		out:            bufio.NewWriter(rw.Body),
-	}
-
-	wsURL, err := url.Parse("ws://localhost/test")
-	rtx.Must(err, "failed to parse WS url")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+func downloadHandler(rw http.ResponseWriter, req *http.Request) {
+	wsConn, err := ndt8.Upgrade(rw, req)
+	rtx.Must(err, "failed to upgrade to WS")
+	proto := ndt8.New(wsConn)
+	ctx, cancel := context.WithTimeout(req.Context(), 3*time.Second)
 	defer cancel()
-
-	// receiver loop goroutine
-	go func() {
-		clientWS, _, err := websocket.NewClient(clientConn, wsURL, req.Header, 1024, 1024)
-		rtx.Must(err, "cannot create websocket client conn")
-
-		clientProto := ndt8.New(clientWS)
-
-		_, _, errCh := clientProto.ReceiverLoop(ctx)
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case err := <-errCh:
-				t.Errorf("ReceiverLoop error: %v", err)
-				return
-			}
-		}
-	}()
-
-	// upgrade the request to websocket
-	wsWriterConn, err := ndt8.Upgrade(hjrw, req)
-	rtx.Must(err, "upgrade failed")
-
-	proto := ndt8.New(wsWriterConn)
-	txMeasurements, rxMeasurements, errCh := proto.Send(ctx)
+	tx, rx, errCh := proto.SendLoop(ctx)
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case m := <-txMeasurements:
-			fmt.Printf("tx sent: %d, tx received: %d\n", m.BytesSent, m.BytesReceived)
-		case m := <-rxMeasurements:
+		case m := <-tx:
+			fmt.Println(m)
+		case m := <-rx:
 			fmt.Println(m)
 		case err := <-errCh:
-			t.Errorf("received error: %v", err)
+			fmt.Printf("err: %v", err)
+		}
+	}
+}
+
+func TestProtocol_Download(t *testing.T) {
+	srv := httptest.NewUnstartedServer(http.HandlerFunc(downloadHandler))
+
+	tcpl, err := net.ListenTCP("tcp", &net.TCPAddr{})
+	rtx.Must(err, "failed to create listener")
+
+	srv.Listener = netx.NewListener(tcpl)
+	srv.Start()
+
+	u, err := url.Parse(srv.URL)
+	u.Scheme = "ws"
+	rtx.Must(err, "cannot get server URL")
+	headers := http.Header{}
+	headers.Add("Sec-WebSocket-Protocol", spec.SecWebSocketProtocol)
+
+	d := websocket.Dialer{
+		NetDialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			conn, err := net.Dial("tcp", u.Host)
+			if err != nil {
+				return nil, err
+			}
+			return &netx.Conn{
+				Conn: conn,
+			}, nil
+		},
+	}
+
+	time.Sleep(1 * time.Second)
+	conn, _, err := d.Dial(u.String(), headers)
+
+	rtx.Must(err, "cannot dial server")
+	proto := ndt8.New(conn)
+	senderCh, receiverCh, errCh := proto.ReceiverLoop(context.Background())
+	start := time.Now()
+	for {
+		select {
+		case <-context.Background().Done():
+			return
+		case m := <-senderCh:
+			fmt.Printf("senderCh BytesReceived: %d, BytesSent: %d\n", m.BytesReceived, m.BytesSent)
+			fmt.Printf("senderCh Goodput: %f Mb/s\n", float64(m.BytesReceived)/float64(time.Since(start).Microseconds())*8)
+		case <-receiverCh:
+
+		case err := <-errCh:
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure) {
+				fmt.Printf("err: %v\n", err)
+				return
+			}
+			fmt.Println("normal close")
 			return
 		}
 	}
-
 }
