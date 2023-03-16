@@ -1,16 +1,5 @@
 issues:
   exclude-rules:
-    - path: test/
-      linters:
-        - cyclop
-        - forbidigo
-        - funlen
-        - gocyclo
-        - gosec
-    - path: testhelper/
-      linters:
-        - forbidigo
-        - wrapcheck
     - path: _test\.go
       linters:
         - funlen
