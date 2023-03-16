@@ -80,12 +80,13 @@ func downloadHandler(rw http.ResponseWriter, req *http.Request) {
 }
 
 func TestProtocol_Download(t *testing.T) {
-	srv := httptest.NewUnstartedServer(http.HandlerFunc(downloadHandler))
-
 	tcpl, err := net.ListenTCP("tcp", &net.TCPAddr{})
 	rtx.Must(err, "failed to create listener")
 
-	srv.Listener = netx.NewListener(tcpl)
+	srv := &httptest.Server{
+		Listener: netx.NewListener(tcpl),
+		Config:   &http.Server{Handler: http.HandlerFunc(downloadHandler)},
+	}
 	srv.Start()
 
 	u, err := url.Parse(srv.URL)
@@ -106,7 +107,6 @@ func TestProtocol_Download(t *testing.T) {
 		},
 	}
 
-	time.Sleep(1 * time.Second)
 	conn, _, err := d.Dial(u.String(), headers)
 
 	rtx.Must(err, "cannot dial server")
