@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"io"
 	"log"
 	"math/rand"
 	"net"
@@ -151,7 +151,7 @@ func (p *Protocol) receiver(ctx context.Context,
 			return
 		}
 		if kind == websocket.TextMessage {
-			data, err := ioutil.ReadAll(reader)
+			data, err := io.ReadAll(reader)
 			if err != nil {
 				errCh <- err
 				return
