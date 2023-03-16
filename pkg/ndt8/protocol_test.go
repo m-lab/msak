@@ -101,9 +101,8 @@ func TestProtocol_Download(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return &netx.Conn{
-				Conn: conn,
-			}, nil
+			netxConn := netx.FromTCPConn(conn.(*net.TCPConn))
+			return netxConn, nil
 		},
 	}
 
