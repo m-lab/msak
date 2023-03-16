@@ -51,6 +51,15 @@ type Conn struct {
 	bytesWritten atomic.Uint64
 }
 
+func FromTCPConn(tcpConn *net.TCPConn) *Conn {
+	fp, _ := tcpConn.File()
+	return &Conn{
+		Conn:       tcpConn,
+		fp:         fp,
+		acceptTime: time.Now(),
+	}
+}
+
 // Read reads from the underlying net.Conn and updates the read bytes counter.
 func (c *Conn) Read(b []byte) (int, error) {
 	n, err := c.Conn.Read(b)
