@@ -87,12 +87,12 @@ func (p *Protocol) makePreparedMessage(size int) (*websocket.PreparedMessage, er
 	return websocket.NewPreparedMessage(websocket.BinaryMessage, data)
 }
 
-// SendLoop starts the send loop of the ndt8 protocol. The context's lifetime
+// SenderLoop starts the send loop of the ndt8 protocol. The context's lifetime
 // determines how long to run for. It returns one channel for sender-side
 // measurements, one channel for receiver-side measurements and one channel for
 // errors. While the measurements channels could be ignored, the errors channel
 // MUST be drained by the caller.
-func (p *Protocol) SendLoop(ctx context.Context) (<-chan model.WireMeasurement,
+func (p *Protocol) SenderLoop(ctx context.Context) (<-chan model.WireMeasurement,
 	<-chan model.WireMeasurement, <-chan error) {
 	// In no case this method will send for longer than spec.MaxRuntime.
 	// Context cancelation will normally happen sooner than that.

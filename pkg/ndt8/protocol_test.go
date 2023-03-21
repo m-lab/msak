@@ -64,7 +64,7 @@ func downloadHandler(rw http.ResponseWriter, req *http.Request) {
 	proto := ndt8.New(wsConn)
 	ctx, cancel := context.WithTimeout(req.Context(), 3*time.Second)
 	defer cancel()
-	tx, rx, errCh := proto.SendLoop(ctx)
+	tx, rx, errCh := proto.SenderLoop(ctx)
 	for {
 		select {
 		case <-ctx.Done():
