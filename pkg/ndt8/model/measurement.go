@@ -13,10 +13,10 @@ type WireMeasurement struct {
 	CC string `json:",omitempty"`
 	// UUID is the unique identifier for this TCP stream.
 	UUID string `json:",omitempty"`
-	// Client is the client's TCP endpoint (ip:port).
-	Client string `json:",omitempty"`
-	// Server is the server's TCP endpoint (ip:port).
-	Server string `json:",omitempty"`
+	// LocalAddr is the local TCP endpoint (ip:port).
+	LocalAddr string `json:",omitempty"`
+	// RemoteAddr is the server's TCP endpoint (ip:port).
+	RemoteAddr string `json:",omitempty"`
 	// Measurement is the Measurement struct wrapped by this WireMeasurement.
 	Measurement
 }

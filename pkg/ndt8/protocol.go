@@ -35,6 +35,7 @@ func (*DefaultMeasurer) Start(ctx context.Context,
 // Protocol is the implementation of the ndt8 protocol.
 type Protocol struct {
 	conn     *websocket.Conn
+	connInfo netx.ConnInfo
 	rnd      *rand.Rand
 	measurer Measurer
 	once     *sync.Once
@@ -44,7 +45,8 @@ type Protocol struct {
 // option set to default.
 func New(conn *websocket.Conn) *Protocol {
 	return &Protocol{
-		conn: conn,
+		conn:     conn,
+		connInfo: netx.ToConnInfo(conn.UnderlyingConn()),
 		// Seed randomness source with the current time.
 		rnd:      rand.New(rand.NewSource(time.Now().UnixMilli())),
 		measurer: &DefaultMeasurer{},
@@ -85,7 +87,7 @@ func (p *Protocol) makePreparedMessage(size int) (*websocket.PreparedMessage, er
 	return websocket.NewPreparedMessage(websocket.BinaryMessage, data)
 }
 
-// SendLoop starts the send/receive loop of the ndt8 protocol. The context's lifetime
+// SendLoop starts the send loop of the ndt8 protocol. The context's lifetime
 // determines how long to run for. It returns one channel for sender-side
 // measurements, one channel for receiver-side measurements and one channel for
 // errors. While the measurements channels could be ignored, the errors channel
@@ -115,6 +117,11 @@ func (p *Protocol) SendLoop(ctx context.Context) (<-chan model.WireMeasurement,
 	return senderCh, receiverCh, errCh
 }
 
+// ReceiverLoop starts the receiver loop of the ndt8 protocol. The context's
+// lifetime determines how long to run for. It returns one channel for
+// sender-side measurements, one channel for receiver-side measurements and one
+// channel for errors. While the measurements channels could be ignored, the
+// errors channel MUST be drained by the caller.
 func (p *Protocol) ReceiverLoop(ctx context.Context) (<-chan model.WireMeasurement,
 	<-chan model.WireMeasurement, <-chan error) {
 	// In no case this method will send for longer than spec.MaxRuntime.
@@ -175,14 +182,12 @@ func (p *Protocol) sendCounterflow(ctx context.Context,
 			p.close(ctx)
 			return
 		case m := <-measurerCh:
-			wireMeasurement := model.WireMeasurement{Measurement: m}
+			wm := model.WireMeasurement{}
 			p.once.Do(func() {
-				wireMeasurement.Client = "TODO"
-				wireMeasurement.Server = "TODO"
-				wireMeasurement.CC = "TODO"
-				wireMeasurement.UUID = "TODO"
+				wm = p.wireMeasurement(ctx)
 			})
-			err := p.conn.WriteJSON(wireMeasurement)
+			wm.Measurement = m
+			err := p.conn.WriteJSON(wm)
 			if err != nil {
 				log.Printf("failed to write measurement JSON (ctx: %p, err: %v)", ctx, err)
 				errCh <- err
@@ -191,7 +196,7 @@ func (p *Protocol) sendCounterflow(ctx context.Context,
 			// This send is non-blocking in case there is no one to read the
 			// Measurement message and the channel's buffer is full.
 			select {
-			case results <- wireMeasurement:
+			case results <- wm:
 			default:
 			}
 		}
@@ -219,14 +224,12 @@ func (p *Protocol) sender(ctx context.Context, measurerCh <-chan model.Measureme
 			p.close(ctx)
 			return
 		case m := <-measurerCh:
-			wireMeasurement := model.WireMeasurement{Measurement: m}
+			wm := model.WireMeasurement{}
 			p.once.Do(func() {
-				wireMeasurement.Client = "TODO"
-				wireMeasurement.Server = "TODO"
-				wireMeasurement.CC = "TODO"
-				wireMeasurement.UUID = "TODO"
+				wm = p.wireMeasurement(ctx)
 			})
-			err = p.conn.WriteJSON(wireMeasurement)
+			wm.Measurement = m
+			err = p.conn.WriteJSON(wm)
 			if err != nil {
 				log.Printf("failed to write measurement JSON (ctx: %p, err: %v)", ctx, err)
 				errCh <- err
@@ -235,7 +238,7 @@ func (p *Protocol) sender(ctx context.Context, measurerCh <-chan model.Measureme
 			// This send is non-blocking in case there is no one to read the
 			// Measurement message and the channel's buffer is full.
 			select {
-			case results <- wireMeasurement:
+			case results <- wm:
 			default:
 			}
 		default:
@@ -276,4 +279,23 @@ func (p *Protocol) close(ctx context.Context) {
 		return
 	}
 	log.Printf("Close message sent (ctx: %p)", ctx)
+}
+
+func (p *Protocol) wireMeasurement(ctx context.Context) model.WireMeasurement {
+	wm := model.WireMeasurement{
+		LocalAddr:  p.conn.LocalAddr().String(),
+		RemoteAddr: p.conn.RemoteAddr().String(),
+	}
+	cc, err := p.connInfo.GetCC()
+	if err != nil {
+		log.Printf("failed to read cc (ctx %p): %v\n",
+			ctx, err)
+	}
+	uuid, err := p.connInfo.UUID()
+	if err != nil {
+		log.Printf("failed to get UUID (ctx %p): %v\n", ctx, err)
+	}
+	wm.CC = cc
+	wm.UUID = uuid
+	return wm
 }
