@@ -184,7 +184,7 @@ func (p *Protocol) sendCounterflow(ctx context.Context,
 		case m := <-measurerCh:
 			wm := model.WireMeasurement{}
 			p.once.Do(func() {
-				wm = p.wireMeasurement(ctx)
+				wm = p.createWireMeasurement(ctx)
 			})
 			wm.Measurement = m
 			err := p.conn.WriteJSON(wm)
@@ -226,7 +226,7 @@ func (p *Protocol) sender(ctx context.Context, measurerCh <-chan model.Measureme
 		case m := <-measurerCh:
 			wm := model.WireMeasurement{}
 			p.once.Do(func() {
-				wm = p.wireMeasurement(ctx)
+				wm = p.createWireMeasurement(ctx)
 			})
 			wm.Measurement = m
 			err = p.conn.WriteJSON(wm)
@@ -281,7 +281,9 @@ func (p *Protocol) close(ctx context.Context) {
 	log.Printf("Close message sent (ctx: %p)", ctx)
 }
 
-func (p *Protocol) wireMeasurement(ctx context.Context) model.WireMeasurement {
+// createWireMeasurement returns an WireMeasurement populated with this
+// protocol's connection's information.
+func (p *Protocol) createWireMeasurement(ctx context.Context) model.WireMeasurement {
 	wm := model.WireMeasurement{
 		LocalAddr:  p.conn.LocalAddr().String(),
 		RemoteAddr: p.conn.RemoteAddr().String(),
