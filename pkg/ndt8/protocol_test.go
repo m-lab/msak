@@ -20,7 +20,6 @@ import (
 
 func TestProtocol_Upgrade(t *testing.T) {
 	r := httptest.NewRequest(http.MethodGet, "/ndt/v8/download", bytes.NewReader([]byte{}))
-	r.Header.Add("Sec-WebSocket-Protocol", spec.SecWebSocketProtocol)
 	r.Header.Add("Sec-Websocket-Version", "13")
 	r.Header.Add("Sec-WebSocket-Key", "test")
 	r.Header.Add("Connection", "upgrade")
@@ -38,6 +37,7 @@ func TestProtocol_Upgrade(t *testing.T) {
 	r.URL = u
 
 	t.Run("upgrade-correct-protocol", func(t *testing.T) {
+		r.Header.Add("Sec-WebSocket-Protocol", spec.SecWebSocketProtocol)
 		resp, err := http.DefaultTransport.RoundTrip(r)
 		if err != nil {
 			t.Fatalf("request failed: %v", err)
@@ -52,7 +52,6 @@ func TestProtocol_Upgrade(t *testing.T) {
 
 	t.Run("upgrade-wrong-protocol", func(t *testing.T) {
 		r.Header.Set("Sec-WebSocket-Protocol", "wrong-protocol")
-
 		resp, err := http.DefaultTransport.RoundTrip(r)
 		if err != nil {
 			t.Fatalf("request failed: %v", err)
