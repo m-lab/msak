@@ -19,6 +19,10 @@ import (
 	"github.com/m-lab/msak/pkg/ndt8/spec"
 )
 
+type senderFunc func(ctx context.Context,
+	measurerCh <-chan model.Measurement, results chan<- model.WireMeasurement,
+	errCh chan<- error)
+
 type Measurer interface {
 	Start(context.Context, net.Conn) <-chan model.Measurement
 }
@@ -94,27 +98,7 @@ func (p *Protocol) makePreparedMessage(size int) (*websocket.PreparedMessage, er
 // MUST be drained by the caller.
 func (p *Protocol) SenderLoop(ctx context.Context) (<-chan model.WireMeasurement,
 	<-chan model.WireMeasurement, <-chan error) {
-	// In no case this method will send for longer than spec.MaxRuntime.
-	// Context cancelation will normally happen sooner than that.
-	deadline := time.Now().Add(spec.MaxRuntime)
-	p.conn.SetWriteDeadline(deadline)
-	p.conn.SetReadDeadline(deadline)
-
-	// Start a measurer that will periodically send measurements over
-	// measurerCh. These measurements are passed to the sender goroutine so it//
-	// can send them to the other party.
-	measurerCh := p.measurer.Start(ctx, p.conn.UnderlyingConn())
-
-	// Separate sender and receiver channels are used for the sender and
-	// receiver goroutines. This allows the caller to know where the
-	// WireMeasurement came from.
-	senderCh := make(chan model.WireMeasurement, 100)
-	receiverCh := make(chan model.WireMeasurement, 100)
-	errCh := make(chan error, 2)
-
-	go p.receiver(ctx, receiverCh, errCh)
-	go p.sender(ctx, measurerCh, senderCh, errCh)
-	return senderCh, receiverCh, errCh
+	return p.senderReceiverLoop(ctx, p.sender)
 }
 
 // ReceiverLoop starts the receiver loop of the ndt8 protocol. The context's
@@ -124,6 +108,12 @@ func (p *Protocol) SenderLoop(ctx context.Context) (<-chan model.WireMeasurement
 // errors channel MUST be drained by the caller.
 func (p *Protocol) ReceiverLoop(ctx context.Context) (<-chan model.WireMeasurement,
 	<-chan model.WireMeasurement, <-chan error) {
+	return p.senderReceiverLoop(ctx, p.sendCounterflow)
+}
+
+func (p *Protocol) senderReceiverLoop(ctx context.Context,
+	send senderFunc) (<-chan model.WireMeasurement,
+	<-chan model.WireMeasurement, <-chan error) {
 	// In no case this method will send for longer than spec.MaxRuntime.
 	// Context cancelation will normally happen sooner than that.
 	deadline := time.Now().Add(spec.MaxRuntime)
@@ -131,8 +121,8 @@ func (p *Protocol) ReceiverLoop(ctx context.Context) (<-chan model.WireMeasureme
 	p.conn.SetReadDeadline(deadline)
 
 	// Start a measurer that will periodically send measurements over
-	// measurerCh. These measurements are passed to the sender goroutine so it//
-	// can send them to the other party.
+	// measurerCh. These measurements are passed to the sender or the
+	// sendCounterflow goroutines so they can be sent to the other party.
 	measurerCh := p.measurer.Start(ctx, p.conn.UnderlyingConn())
 
 	// Separate sender and receiver channels are used for the sender and
@@ -143,7 +133,7 @@ func (p *Protocol) ReceiverLoop(ctx context.Context) (<-chan model.WireMeasureme
 	errCh := make(chan error, 2)
 
 	go p.receiver(ctx, receiverCh, errCh)
-	go p.sendCounterflow(ctx, measurerCh, senderCh, errCh)
+	go send(ctx, measurerCh, senderCh, errCh)
 	return senderCh, receiverCh, errCh
 }
 
