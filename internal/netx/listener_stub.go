@@ -1,8 +1,9 @@
-//!linux
 //go:build !linux
 // +build !linux
 
 package netx
+
+import "net"
 
 func (ln *Listener) accept() (net.Conn, error) {
 	tc, err := ln.AcceptTCP()
