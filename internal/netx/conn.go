@@ -51,13 +51,8 @@ type Conn struct {
 	bytesWritten atomic.Uint64
 }
 
-func FromTCPConn(tcpConn *net.TCPConn) *Conn {
-	fp, _ := tcpConn.File()
-	return &Conn{
-		Conn:       tcpConn,
-		fp:         fp,
-		acceptTime: time.Now(),
-	}
+func FromTCPConn(tcpConn *net.TCPConn) (*Conn, error) {
+	return fromTCPConn(tcpConn)
 }
 
 // Read reads from the underlying net.Conn and updates the read bytes counter.
@@ -81,8 +76,7 @@ func (c *Conn) ByteCounters() (uint64, uint64) {
 
 // Close closes the underlying net.Conn and the duplicate file descriptor.
 func (c *Conn) Close() error {
-	c.fp.Close()
-	return c.Conn.Close()
+	return c.close()
 }
 
 // SetCC sets the congestion control algorithm on the underlying file
