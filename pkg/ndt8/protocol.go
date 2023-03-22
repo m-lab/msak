@@ -254,6 +254,7 @@ func (p *Protocol) sender(ctx context.Context, measurerCh <-chan model.Measureme
 			if err != nil {
 				log.Printf("failed to make prepared message (ctx: %p, err: %v)", ctx, err)
 				errCh <- err
+				return
 			}
 
 		}
@@ -278,6 +279,8 @@ func (p *Protocol) createWireMeasurement(ctx context.Context) model.WireMeasurem
 		LocalAddr:  p.conn.LocalAddr().String(),
 		RemoteAddr: p.conn.RemoteAddr().String(),
 	}
+	// When GetCC fails it returns an empty string. This failure is expected on
+	// Windows systems and should not be considered fatal.
 	cc, err := p.connInfo.GetCC()
 	if err != nil {
 		log.Printf("failed to read cc (ctx %p): %v\n",

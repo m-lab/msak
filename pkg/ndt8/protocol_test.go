@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	hj "github.com/getlantern/httptest"
 	"github.com/gorilla/websocket"
 	"github.com/m-lab/go/rtx"
 	"github.com/m-lab/msak/internal/netx"
@@ -40,22 +39,42 @@ func TestProtocol_Upgrade(t *testing.T) {
 	r.Header.Add("Connection", "upgrade")
 	r.Header.Add("Upgrade", "websocket")
 
-	resp := hj.NewRecorder(nil)
-	conn, err := ndt8.Upgrade(resp, r)
-	if err != nil {
-		t.Fatalf("Upgrade failed: %v", err)
-	}
-	if conn == nil {
-		t.Fatalf("Upgrade returned nil")
-	}
-	r.Header.Set("Sec-WebSocket-Protocol", "wrong-protocol")
-	conn, err = ndt8.Upgrade(resp, r)
-	if err == nil {
-		t.Fatalf("Upgrade accepted a wrong subprotocol")
-	}
-	if conn != nil {
-		t.Fatalf("Upgrade returned a websocket.Conn on error")
-	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, err := ndt8.Upgrade(w, r)
+		if err != nil {
+			return
+		}
+	}))
+
+	u, err := url.Parse(server.URL)
+	rtx.Must(err, "cannot parse server URL")
+	r.URL = u
+
+	t.Run("upgrade-correct-protocol", func(t *testing.T) {
+		resp, err := http.DefaultTransport.RoundTrip(r)
+		if err != nil {
+			t.Fatalf("request failed: %v", err)
+		}
+
+		fmt.Printf("resp: %v\n", resp)
+
+		if resp.StatusCode != http.StatusSwitchingProtocols {
+			t.Fatalf("upgrader did not start upgrade")
+		}
+	})
+
+	t.Run("upgrade-wrong-protocol", func(t *testing.T) {
+		r.Header.Set("Sec-WebSocket-Protocol", "wrong-protocol")
+
+		resp, err := http.DefaultTransport.RoundTrip(r)
+		if err != nil {
+			t.Fatalf("request failed: %v", err)
+		}
+
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Fatalf("upgrader did not return bad request on wrong protocol")
+		}
+	})
 }
 
 func downloadHandler(rw http.ResponseWriter, req *http.Request) {
@@ -101,8 +120,7 @@ func TestProtocol_Download(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			netxConn := netx.FromTCPConn(conn.(*net.TCPConn))
-			return netxConn, nil
+			return netx.FromTCPConn(conn.(*net.TCPConn))
 		},
 	}
 
