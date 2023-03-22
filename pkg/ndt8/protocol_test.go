@@ -1,7 +1,6 @@
 package ndt8_test
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"fmt"
@@ -18,18 +17,6 @@ import (
 	"github.com/m-lab/msak/pkg/ndt8"
 	"github.com/m-lab/msak/pkg/ndt8/spec"
 )
-
-type HijackableResponseWriter struct {
-	http.ResponseWriter
-
-	Conn net.Conn
-	in   *bufio.Reader
-	out  *bufio.Writer
-}
-
-func (rw HijackableResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
-	return rw.Conn, bufio.NewReadWriter(rw.in, rw.out), nil
-}
 
 func TestProtocol_Upgrade(t *testing.T) {
 	r := httptest.NewRequest(http.MethodGet, "/ndt/v8/download", bytes.NewReader([]byte{}))
