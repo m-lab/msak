@@ -11,6 +11,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/m-lab/access/controller"
 	"github.com/m-lab/msak/internal/netx"
+	"github.com/m-lab/msak/internal/persistence"
 	"github.com/m-lab/msak/pkg/ndt8"
 	"github.com/m-lab/msak/pkg/ndt8/model"
 )
@@ -34,11 +35,11 @@ func New(archivalDataDir string) *Handler {
 }
 
 func (h *Handler) Download(rw http.ResponseWriter, req *http.Request) {
-
+	h.upgradeAndRunMeasurement("download", rw, req)
 }
 
 func (h *Handler) Upload(rw http.ResponseWriter, req *http.Request) {
-
+	h.upgradeAndRunMeasurement("upload", rw, req)
 }
 
 func (h *Handler) upgradeAndRunMeasurement(kind string, rw http.ResponseWriter,
@@ -108,7 +109,7 @@ func (h *Handler) upgradeAndRunMeasurement(kind string, rw http.ResponseWriter,
 	uuid, err := conn.UUID()
 	if err != nil {
 		// UUID() has a fallback that won't ever fail. This should not happen.
-		log.Printf("Failed to read UUID (ctx: %p): %v\n", req.Context())
+		log.Printf("Failed to read UUID (ctx: %p): %v\n", req.Context(), err)
 		wsConn.Close()
 		return
 	}
@@ -123,14 +124,15 @@ func (h *Handler) upgradeAndRunMeasurement(kind string, rw http.ResponseWriter,
 		Version:        "0",
 		ClientMetadata: metadata,
 		ClientOptions: []model.NameValue{
-			{"streams", requestStreams},
-			{"duration", requestDuration},
-			{"delay", requestDelay},
-			{"cc", requestCC},
+			{Name: "streams", Value: requestStreams},
+			{Name: "duration", Value: requestDuration},
+			{Name: "delay", Value: requestDelay},
+			{Name: "cc", Value: requestCC},
 		},
 	}
 	defer func() {
 		archivalData.EndTime = time.Now()
+		h.writeResult(uuid, kind, &archivalData)
 	}()
 
 	// Set the runtime to the requested duration.
@@ -150,7 +152,7 @@ func (h *Handler) upgradeAndRunMeasurement(kind string, rw http.ResponseWriter,
 	for {
 		select {
 		case <-timeout.Done():
-			break
+			return
 		case m := <-senderCh:
 			// If this is a download test we are the sender, so we can populate
 			// CCAlgorithm as soon as it's sent out at least once.
@@ -174,6 +176,16 @@ func (h *Handler) upgradeAndRunMeasurement(kind string, rw http.ResponseWriter,
 			}
 			return
 		}
+	}
+}
+
+func (h *Handler) writeResult(uuid string, kind string, result *model.NDT8Result) {
+	_, err := persistence.WriteDataFile(
+		h.archivalDataDir, "ndt8", kind, uuid,
+		result)
+	if err != nil {
+		log.Printf("failed to write ndt8 result: %v\n", err)
+		return
 	}
 }
 
