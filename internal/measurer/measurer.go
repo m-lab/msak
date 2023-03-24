@@ -5,10 +5,10 @@ package measurer
 
 import (
 	"context"
-	"log"
 	"net"
 	"time"
 
+	"github.com/charmbracelet/log"
 	"github.com/m-lab/go/memoryless"
 	"github.com/m-lab/go/rtx"
 	"github.com/m-lab/msak/internal/netx"
@@ -59,8 +59,8 @@ func Start(ctx context.Context, conn net.Conn) <-chan model.Measurement {
 }
 
 func (m *ndt8Measurer) loop(ctx context.Context) {
-	log.Printf("measurer: start (context %p)", ctx)
-	defer log.Printf("measurer: stop (context %p)", ctx)
+	log.Debug("Measurer started", "context", ctx)
+	defer log.Debug("Measurer stopped", "context", ctx)
 	t, err := memoryless.NewTicker(ctx, memoryless.Config{
 		Min:      spec.MinMeasureInterval,
 		Expected: spec.AvgMeasureInterval,
@@ -86,7 +86,7 @@ func (m *ndt8Measurer) measure(ctx context.Context) {
 	// we still want to return a (empty) Measurement.
 	bbrInfo, tcpInfo, err := m.connInfo.Info()
 	if err != nil {
-		log.Printf("GetInfo() failed for context %p: %v", ctx, err)
+		log.Warn("GetInfo() failed for context %p: %v", ctx, err)
 	}
 
 	// Read current bytes counters.
