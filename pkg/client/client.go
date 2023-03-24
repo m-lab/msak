@@ -100,6 +100,7 @@ func New(clientName, clientVersion string) *NDTMClient {
 func (c *NDTMClient) connect(ctx context.Context, serviceURL *url.URL) (*websocket.Conn, error) {
 	q := serviceURL.Query()
 	q.Set("streams", fmt.Sprint(c.NumStreams))
+	q.Set("cc", c.CongestionControl)
 	q.Set("client_arch", runtime.GOARCH)
 	q.Set("client_library_name", libraryName)
 	q.Set("client_library_version", libraryVersion)
@@ -181,7 +182,9 @@ func (c *NDTMClient) start(ctx context.Context, subtest spec.SubtestKind) error 
 	globalTimeout, cancel := context.WithTimeout(ctx, c.Length)
 	defer cancel()
 
+	globalStartTime := time.Now()
 	for i := 0; i < c.NumStreams; i++ {
+		streamID := i
 		wg.Add(1)
 		measurements := make(chan model.WireMeasurement)
 		result := &model.NDT8Result{
@@ -191,7 +194,7 @@ func (c *NDTMClient) start(ctx context.Context, subtest spec.SubtestKind) error 
 
 		go func() {
 			defer wg.Done()
-			log.Print("connecting to ", mURL.String())
+			log.Printf("Stream #%d connecting to %s", streamID, mURL.String())
 			// Connect to mURL.
 			conn, err := c.connect(ctx, mURL)
 			if err != nil {
@@ -234,9 +237,11 @@ func (c *NDTMClient) start(ctx context.Context, subtest spec.SubtestKind) error 
 				case <-globalTimeout.Done():
 					return
 				case m := <-senderCh:
-					log.Print(m)
-				case m := <-receiverCh:
-					log.Print(m)
+					fmt.Printf("%d,%d,%f\n", streamID, time.Since(globalStartTime).Microseconds(),
+						float64(m.BytesReceived)/float64(m.ElapsedTime)*8)
+				case <-receiverCh:
+					//log.Printf("Stream #%d: receiverCh Throughput: %f Mb/s\n", streamID,
+					//	float64(m.TCPInfo.BytesAcked)/float64(m.ElapsedTime)*8)
 				case err := <-errCh:
 					log.Print(err)
 				}
