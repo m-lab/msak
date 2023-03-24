@@ -120,7 +120,7 @@ func (c *NDTMClient) connect(ctx context.Context, serviceURL *url.URL) (*websock
 // If there are no more URLs to try, it returns an error.
 func (c *NDTMClient) nextURLFromLocate(ctx context.Context, p string) (string, error) {
 	if len(c.targets) == 0 {
-		targets, err := c.Locate.Nearest(ctx, "msak/ndtm")
+		targets, err := c.Locate.Nearest(ctx, "msak/ndt8")
 		if err != nil {
 			return "", err
 		}
@@ -182,7 +182,7 @@ func (c *NDTMClient) start(ctx context.Context, subtest spec.SubtestKind) error 
 	defer cancel()
 
 	for i := 0; i < c.NumStreams; i++ {
-		wg.Add(2)
+		wg.Add(1)
 		measurements := make(chan model.WireMeasurement)
 		result := &model.NDT8Result{
 			MeasurementID: c.MeasurementID,

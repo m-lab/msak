@@ -9,11 +9,13 @@ require (
 	github.com/lucas-clemente/quic-go v0.30.0
 	github.com/m-lab/access v0.0.11
 	github.com/m-lab/go v0.1.58
+	github.com/m-lab/locate v0.11.0
 	github.com/m-lab/ndt-server v0.20.17
 	github.com/m-lab/tcp-info v1.5.3
 	github.com/m-lab/uuid v1.0.1
 	github.com/marten-seemann/webtransport-go v0.2.0
 	github.com/quic-go/quic-go v0.33.0
+	go.uber.org/zap v1.24.0
 )
 
 require (
@@ -46,6 +48,8 @@ require (
 	github.com/quic-go/qtls-go1-19 v0.2.1 // indirect
 	github.com/quic-go/qtls-go1-20 v0.1.1 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
+	go.uber.org/atomic v1.7.0 // indirect
+	go.uber.org/multierr v1.6.0 // indirect
 	golang.org/x/crypto v0.4.0 // indirect
 	golang.org/x/exp v0.0.0-20221205204356-47842c84f3db // indirect
 	golang.org/x/mod v0.6.0 // indirect
