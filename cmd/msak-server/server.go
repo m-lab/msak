@@ -4,17 +4,18 @@ import (
 	"context"
 	"crypto/tls"
 	"flag"
-	"log"
+	"net"
 	"net/http"
 	"time"
 
+	"github.com/charmbracelet/log"
 	"github.com/m-lab/access/controller"
 	"github.com/m-lab/access/token"
 	"github.com/m-lab/go/flagx"
-	"github.com/m-lab/go/httpx"
 	"github.com/m-lab/go/prometheusx"
 	"github.com/m-lab/go/rtx"
 	"github.com/m-lab/msak/internal/handler"
+	"github.com/m-lab/msak/internal/netx"
 	"github.com/m-lab/msak/pkg/ndt8/spec"
 )
 
@@ -57,6 +58,11 @@ func httpServer(addr string, handler http.Handler) *http.Server {
 func main() {
 	flag.Parse()
 
+	// Initialize logging and metrics.
+	log.SetReportCaller(true)
+	log.SetReportTimestamp(true)
+	log.SetLevel(log.DebugLevel)
+
 	promSrv := prometheusx.MustServeMetrics()
 	defer promSrv.Close()
 
@@ -65,32 +71,50 @@ func main() {
 		rtx.Must(err, "Failed to load verifier")
 	}
 	// Enforce tokens on uploads and downloads.
-	ndtmTokenPaths := controller.Paths{
+	ndt8TokenPaths := controller.Paths{
 		spec.DownloadPath: true,
 		spec.UploadPath:   true,
 	}
-	acm, _ := controller.Setup(ctx, v, tokenVerify, tokenMachine, nil, ndtmTokenPaths)
+	acm, _ := controller.Setup(ctx, v, tokenVerify, tokenMachine, nil, ndt8TokenPaths)
 
-	// The ndtm handler serving up ndtm tests.
 	ndt8Mux := http.NewServeMux()
-	ndtmHandler := handler.New(*flagDataDir)
-	ndt8Mux.Handle(spec.DownloadPath, http.HandlerFunc(ndtmHandler.Download))
-	ndt8Mux.Handle(spec.UploadPath, http.HandlerFunc(ndtmHandler.Upload))
-	ndtmServerCleartext := httpServer(
+	ndt8Handler := handler.New(*flagDataDir)
+	ndt8Mux.Handle(spec.DownloadPath, http.HandlerFunc(ndt8Handler.Download))
+	ndt8Mux.Handle(spec.UploadPath, http.HandlerFunc(ndt8Handler.Upload))
+	ndt8ServerCleartext := httpServer(
 		*flagEndpointCleartext,
 		acm.Then(ndt8Mux))
 
-	log.Println("About to listen for ws tests on " + *flagEndpointCleartext)
-	rtx.Must(httpx.ListenAndServeAsync(ndtmServerCleartext), "Could not start cleartext server")
+	log.Info("About to listen for ws tests", "endpoint", *flagEndpointCleartext)
+
+	tcpl, err := net.Listen("tcp", ndt8ServerCleartext.Addr)
+	rtx.Must(err, "failed to create listener")
+	l := netx.NewListener(tcpl.(*net.TCPListener))
+	defer l.Close()
+
+	go func() {
+		err := ndt8ServerCleartext.Serve(l)
+		rtx.Must(err, "Could not start cleartext server")
+		defer ndt8ServerCleartext.Close()
+	}()
 
 	// Only start TLS-based services if certs and keys are provided
 	if *flagCertFile != "" && *flagKeyFile != "" {
 		ndt8Server := httpServer(
 			*flagEndpoint,
 			acm.Then(ndt8Mux))
-		log.Println("About to listen for wss tests on " + *flagEndpoint)
-		rtx.Must(httpx.ListenAndServeTLSAsync(ndt8Server, *flagCertFile, *flagKeyFile), "Could not start TLS server")
-		defer ndt8Server.Close()
+		log.Info("About to listen for wss tests", "endpoint", *flagEndpoint)
+
+		tcpl, err := net.Listen("tcp", ndt8Server.Addr)
+		rtx.Must(err, "failed to create listener")
+		l := netx.NewListener(tcpl.(*net.TCPListener))
+		defer l.Close()
+
+		go func() {
+			err := ndt8Server.ServeTLS(l, *flagCertFile, *flagKeyFile)
+			rtx.Must(err, "Could not start cleartext server")
+			defer ndt8Server.Close()
+		}()
 	}
 
 	<-ctx.Done()

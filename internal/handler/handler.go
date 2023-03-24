@@ -3,13 +3,14 @@ package handler
 import (
 	"context"
 	"errors"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
 
+	"github.com/charmbracelet/log"
 	"github.com/gorilla/websocket"
 	"github.com/m-lab/access/controller"
+	"github.com/m-lab/go/prometheusx"
 	"github.com/m-lab/msak/internal/netx"
 	"github.com/m-lab/msak/internal/persistence"
 	"github.com/m-lab/msak/pkg/ndt8"
@@ -62,11 +63,9 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 		return
 	}
 	requestDuration := query.Get("duration")
-	var duration int
-	if duration, err = strconv.Atoi(requestDuration); requestDuration != "" && err != nil {
-		log.Printf("Invalid duration: %v\n", err)
-		writeBadRequest(rw)
-		return
+	var duration = 5 * time.Second
+	if d, err := strconv.Atoi(requestDuration); requestDuration != "" && err == nil {
+		duration = time.Duration(d) * time.Second
 	}
 	requestCC := query.Get("cc")
 	requestDelay := query.Get("delay")
@@ -75,7 +74,7 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 	// option).
 	metadata, err := getRequestMetadata(req)
 	if err != nil {
-		log.Printf("Error while parsing metadata: %v\n", err)
+		log.Info("Error while parsing metadata", "error", err)
 		writeBadRequest(rw)
 		return
 	}
@@ -86,7 +85,7 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 	// we cannot call writeBadRequest after attempting an Upgrade.
 	wsConn, err := ndt8.Upgrade(rw, req)
 	if err != nil {
-		log.Printf("Websocket upgrade failed: %v\n", err)
+		log.Info("Websocket upgrade failed", "error", err)
 		return
 	}
 
@@ -100,10 +99,12 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 	// congestion control algorithm that's not available on this system. In
 	// this case, we should still run with the default and record the requested
 	// vs/ actual CC used in the archival data.
-	err = conn.SetCC(requestCC)
-	if err != nil {
-		log.Printf("Failed to set cc (ctx: %p, cc: %s): %v\n", req.Context(),
-			requestCC, err)
+	if requestCC != "" {
+		err = conn.SetCC(requestCC)
+		if err != nil {
+			log.Info("Failed to set cc (ctx: %p, cc: %s): %v\n", req.Context(),
+				requestCC, err)
+		}
 	}
 
 	uuid, err := conn.UUID()
@@ -120,8 +121,8 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 		Server:         wsConn.UnderlyingConn().LocalAddr().String(),
 		Client:         wsConn.UnderlyingConn().RemoteAddr().String(),
 		Direction:      string(kind),
-		GitShortCommit: "TODO",
-		Version:        "0",
+		GitShortCommit: prometheusx.GitShortCommit,
+		Version:        "v0.0.1",
 		ClientMetadata: metadata,
 		ClientOptions: []model.NameValue{
 			{Name: "streams", Value: requestStreams},
