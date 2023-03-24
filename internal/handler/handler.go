@@ -1,4 +1,4 @@
-package ndt8
+package handler
 
 import (
 	"context"
@@ -35,14 +35,14 @@ func New(archivalDataDir string) *Handler {
 }
 
 func (h *Handler) Download(rw http.ResponseWriter, req *http.Request) {
-	h.upgradeAndRunMeasurement("download", rw, req)
+	h.upgradeAndRunMeasurement(model.DirectionDownload, rw, req)
 }
 
 func (h *Handler) Upload(rw http.ResponseWriter, req *http.Request) {
-	h.upgradeAndRunMeasurement("upload", rw, req)
+	h.upgradeAndRunMeasurement(model.DirectionUpload, rw, req)
 }
 
-func (h *Handler) upgradeAndRunMeasurement(kind string, rw http.ResponseWriter,
+func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.ResponseWriter,
 	req *http.Request) {
 	mid, err := getMIDFromRequest(req)
 	if err != nil {
@@ -63,7 +63,7 @@ func (h *Handler) upgradeAndRunMeasurement(kind string, rw http.ResponseWriter,
 	}
 	requestDuration := query.Get("duration")
 	var duration int
-	if duration, err = strconv.Atoi(requestDuration); err != nil {
+	if duration, err = strconv.Atoi(requestDuration); requestDuration != "" && err != nil {
 		log.Printf("Invalid duration: %v\n", err)
 		writeBadRequest(rw)
 		return
@@ -82,11 +82,11 @@ func (h *Handler) upgradeAndRunMeasurement(kind string, rw http.ResponseWriter,
 
 	// Everything looks good, try upgrading the connection to WebSocket.
 	// Once upgraded, the underlying TCP connection is hijacked and the ndt8
-	// protocol code will take care of closing it.
+	// protocol code will take care of closing it. Note that for this reason
+	// we cannot call writeBadRequest after attempting an Upgrade.
 	wsConn, err := ndt8.Upgrade(rw, req)
 	if err != nil {
 		log.Printf("Websocket upgrade failed: %v\n", err)
-		writeBadRequest(rw)
 		return
 	}
 
@@ -119,7 +119,7 @@ func (h *Handler) upgradeAndRunMeasurement(kind string, rw http.ResponseWriter,
 		StartTime:      time.Now(),
 		Server:         wsConn.UnderlyingConn().LocalAddr().String(),
 		Client:         wsConn.UnderlyingConn().RemoteAddr().String(),
-		Direction:      kind,
+		Direction:      string(kind),
 		GitShortCommit: "TODO",
 		Version:        "0",
 		ClientMetadata: metadata,
@@ -143,7 +143,7 @@ func (h *Handler) upgradeAndRunMeasurement(kind string, rw http.ResponseWriter,
 	proto := ndt8.New(wsConn)
 	var senderCh, receiverCh <-chan model.WireMeasurement
 	var errCh <-chan error
-	if kind == "download" {
+	if kind == model.DirectionDownload {
 		senderCh, receiverCh, errCh = proto.SenderLoop(timeout)
 	} else {
 		senderCh, receiverCh, errCh = proto.ReceiverLoop(timeout)
@@ -156,7 +156,7 @@ func (h *Handler) upgradeAndRunMeasurement(kind string, rw http.ResponseWriter,
 		case m := <-senderCh:
 			// If this is a download test we are the sender, so we can populate
 			// CCAlgorithm as soon as it's sent out at least once.
-			if kind == "download" && m.CC != "" {
+			if kind == model.DirectionDownload && m.CC != "" {
 				archivalData.CCAlgorithm = m.CC
 			}
 			archivalData.ServerMeasurements = append(
@@ -164,7 +164,7 @@ func (h *Handler) upgradeAndRunMeasurement(kind string, rw http.ResponseWriter,
 		case m := <-receiverCh:
 			// Same for upload tests, but in this case the sender is the
 			// client. If the client ever sends the CC it's using, save it.
-			if kind == "upload" && m.CC != "" {
+			if kind == model.DirectionUpload && m.CC != "" {
 				archivalData.CCAlgorithm = m.CC
 			}
 			archivalData.ClientMeasurements = append(archivalData.ClientMeasurements,
@@ -179,9 +179,9 @@ func (h *Handler) upgradeAndRunMeasurement(kind string, rw http.ResponseWriter,
 	}
 }
 
-func (h *Handler) writeResult(uuid string, kind string, result *model.NDT8Result) {
+func (h *Handler) writeResult(uuid string, kind model.TestDirection, result *model.NDT8Result) {
 	_, err := persistence.WriteDataFile(
-		h.archivalDataDir, "ndt8", kind, uuid,
+		h.archivalDataDir, "ndt8", string(kind), uuid,
 		result)
 	if err != nil {
 		log.Printf("failed to write ndt8 result: %v\n", err)
@@ -213,8 +213,8 @@ func getMIDFromRequest(req *http.Request) (string, error) {
 
 // writeBadRequest sends a Bad Request response to the client using writer.
 func writeBadRequest(writer http.ResponseWriter) {
-	writer.Header().Set("Connection", "Close")
 	writer.WriteHeader(http.StatusBadRequest)
+	writer.Header().Set("Connection", "Close")
 }
 
 func getRequestMetadata(req *http.Request) ([]model.NameValue, error) {
@@ -224,7 +224,7 @@ func getRequestMetadata(req *http.Request) ([]model.NameValue, error) {
 	filtered := []model.NameValue{}
 	for k, v := range query {
 		// This maximum length for keys and values is meant to limit abuse.
-		if len(k) <= 200 && len(v[0]) <= 200 {
+		if len(k) > 200 || len(v[0]) > 200 {
 			return nil, errors.New("maximum key or value length exceeded")
 		}
 		// Filter known options.
