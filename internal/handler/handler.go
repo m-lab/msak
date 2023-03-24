@@ -225,7 +225,7 @@ func getRequestMetadata(req *http.Request) ([]model.NameValue, error) {
 	filtered := []model.NameValue{}
 	for k, v := range query {
 		// This maximum length for keys and values is meant to limit abuse.
-		if len(k) > 200 || len(v[0]) > 200 {
+		if len(k) > 50 || len(v[0]) > 512 {
 			return nil, errors.New("maximum key or value length exceeded")
 		}
 		// Filter known options.
