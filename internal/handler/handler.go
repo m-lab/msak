@@ -19,10 +19,11 @@ import (
 
 // knownOptions are the known ndt8 options.
 var knownOptions = map[string]struct{}{
-	"streams":  {},
-	"duration": {},
-	"delay":    {},
-	"cc":       {},
+	"streams":      {},
+	"duration":     {},
+	"delay":        {},
+	"cc":           {},
+	"access_token": {},
 }
 
 type Handler struct {
