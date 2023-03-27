@@ -42,7 +42,7 @@ type Locator interface {
 	Nearest(ctx context.Context, service string) ([]v2.Target, error)
 }
 
-type NDTMClient struct {
+type NDT8Client struct {
 	ClientName    string
 	ClientVersion string
 
@@ -74,8 +74,8 @@ func makeUserAgent(clientName, clientVersion string) string {
 	return clientName + "/" + clientVersion + " " + libraryName + "/" + libraryVersion
 }
 
-func New(clientName, clientVersion string) *NDTMClient {
-	return &NDTMClient{
+func New(clientName, clientVersion string) *NDT8Client {
+	return &NDT8Client{
 		ClientName:    clientName,
 		ClientVersion: clientVersion,
 		Dialer: &websocket.Dialer{
@@ -97,7 +97,7 @@ func New(clientName, clientVersion string) *NDTMClient {
 	}
 }
 
-func (c *NDTMClient) connect(ctx context.Context, serviceURL *url.URL) (*websocket.Conn, error) {
+func (c *NDT8Client) connect(ctx context.Context, serviceURL *url.URL) (*websocket.Conn, error) {
 	q := serviceURL.Query()
 	q.Set("streams", fmt.Sprint(c.NumStreams))
 	q.Set("cc", c.CongestionControl)
@@ -111,6 +111,7 @@ func (c *NDTMClient) connect(ctx context.Context, serviceURL *url.URL) (*websock
 	headers := http.Header{}
 	headers.Add("Sec-WebSocket-Protocol", spec.SecWebSocketProtocol)
 	headers.Add("User-Agent", makeUserAgent(c.ClientName, c.ClientVersion))
+	log.Printf("Connecting to %s...", serviceURL.String())
 	conn, _, err := c.Dialer.DialContext(ctx, serviceURL.String(), headers)
 	return conn, err
 }
@@ -119,7 +120,7 @@ func (c *NDTMClient) connect(ctx context.Context, serviceURL *url.URL) (*websock
 // If it's the first time we're calling this function, it contacts the Locate
 // API. Subsequently, it returns the next URL from the cache.
 // If there are no more URLs to try, it returns an error.
-func (c *NDTMClient) nextURLFromLocate(ctx context.Context, p string) (string, error) {
+func (c *NDT8Client) nextURLFromLocate(ctx context.Context, p string) (string, error) {
 	if len(c.targets) == 0 {
 		targets, err := c.Locate.Nearest(ctx, "msak/ndt8")
 		if err != nil {
@@ -138,7 +139,7 @@ func (c *NDTMClient) nextURLFromLocate(ctx context.Context, p string) (string, e
 	return "", ErrNoTargets
 }
 
-func (c *NDTMClient) start(ctx context.Context, subtest spec.SubtestKind) error {
+func (c *NDT8Client) start(ctx context.Context, subtest spec.SubtestKind) error {
 	// Find the URL to use for this measurement.
 	var mURL *url.URL
 	// If the server has been provided, use it and use default paths based on
@@ -183,6 +184,7 @@ func (c *NDTMClient) start(ctx context.Context, subtest spec.SubtestKind) error 
 	defer cancel()
 
 	globalStartTime := time.Now()
+
 	for i := 0; i < c.NumStreams; i++ {
 		streamID := i
 		wg.Add(1)
@@ -194,7 +196,7 @@ func (c *NDTMClient) start(ctx context.Context, subtest spec.SubtestKind) error 
 
 		go func() {
 			defer wg.Done()
-			log.Printf("Stream #%d connecting to %s", streamID, mURL.String())
+
 			// Connect to mURL.
 			conn, err := c.connect(ctx, mURL)
 			if err != nil {
@@ -237,11 +239,10 @@ func (c *NDTMClient) start(ctx context.Context, subtest spec.SubtestKind) error 
 				case <-globalTimeout.Done():
 					return
 				case m := <-senderCh:
-					fmt.Printf("%d,%d,%f\n", streamID, time.Since(globalStartTime).Microseconds(),
-						float64(m.BytesReceived)/float64(m.ElapsedTime)*8)
+					fmt.Printf("ID: #%d, Elapsed: %.3f, Goodput: %f (MinRTT: %d)\n", streamID, time.Since(globalStartTime).Seconds(),
+						float64(m.BytesReceived)/float64(m.ElapsedTime)*8, m.TCPInfo.MinRTT)
 				case <-receiverCh:
-					//log.Printf("Stream #%d: receiverCh Throughput: %f Mb/s\n", streamID,
-					//	float64(m.TCPInfo.BytesAcked)/float64(m.ElapsedTime)*8)
+					// NOTHING
 				case err := <-errCh:
 					log.Print(err)
 				}
@@ -256,14 +257,14 @@ func (c *NDTMClient) start(ctx context.Context, subtest spec.SubtestKind) error 
 	return nil
 }
 
-func (c *NDTMClient) Download(ctx context.Context) {
+func (c *NDT8Client) Download(ctx context.Context) {
 	err := c.start(ctx, spec.SubtestDownload)
 	if err != nil {
 		log.Println(err)
 	}
 }
 
-func (c *NDTMClient) Upload(ctx context.Context) {
+func (c *NDT8Client) Upload(ctx context.Context) {
 	err := c.start(ctx, spec.SubtestUpload)
 	if err != nil {
 		log.Println(err)

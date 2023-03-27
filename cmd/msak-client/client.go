@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"flag"
 	"log"
 	"os"
@@ -18,7 +19,8 @@ var (
 	flagDelay    = flag.Duration("delay", 2*time.Second, "Delay between each stream")
 	flagDuration = flag.Duration("duration", 5*time.Second, "Length of the last stream")
 	flagScheme   = flag.String("scheme", "ws", "Websocket scheme (wss or ws)")
-	flagOutput   = flag.String("output", "", "Path to write measurement results to")
+	flagMID      = flag.String("mid", uuid.NewString(), "Measurement ID to use")
+	flagNoVerify = flag.Bool("no-verify", false, "Skip TLS certificate verification")
 )
 
 func main() {
@@ -30,15 +32,16 @@ func main() {
 	}
 
 	cl := client.New("msak-client", "")
+	cl.Dialer.TLSClientConfig = &tls.Config{
+		InsecureSkipVerify: *flagNoVerify,
+	}
 	cl.Server = *flagServer
 	cl.CongestionControl = *flagCC
 	cl.NumStreams = *flagStreams
 	cl.Scheme = *flagScheme
-	cl.MeasurementID = uuid.NewString()
+	cl.MeasurementID = *flagMID
 	cl.Length = *flagDuration
 	cl.Delay = *flagDelay
-
-	cl.OutputPath = *flagOutput
 
 	cl.Download(context.Background())
 }
