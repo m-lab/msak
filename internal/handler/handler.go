@@ -83,7 +83,8 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 	var duration = 5 * time.Second
 	if requestDuration != "" {
 		if d, err := strconv.Atoi(requestDuration); err == nil {
-			duration = time.Duration(d) * time.Second
+			// Note: the provided duration must be milliseconds.
+			duration = time.Duration(d) * time.Millisecond
 		} else {
 			ClientConnections.WithLabelValues(string(kind),
 				"invalid-duration").Inc()
