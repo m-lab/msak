@@ -154,6 +154,7 @@ func (c *NDT8Client) start(ctx context.Context, subtest spec.SubtestKind) error 
 		}
 		q := mURL.Query()
 		q.Set("mid", c.MeasurementID)
+		q.Set("duration", fmt.Sprintf("%d", c.Length.Milliseconds()))
 		mURL.RawQuery = q.Encode()
 	}
 
