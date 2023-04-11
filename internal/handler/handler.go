@@ -15,6 +15,8 @@ import (
 	"github.com/m-lab/msak/internal/persistence"
 	"github.com/m-lab/msak/pkg/ndt8"
 	"github.com/m-lab/msak/pkg/ndt8/model"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 // knownOptions are the known ndt8 options.
@@ -25,6 +27,17 @@ var knownOptions = map[string]struct{}{
 	"cc":           {},
 	"access_token": {},
 }
+
+var (
+	ClientConnections = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "msak",
+			Subsystem: "ndt8",
+			Name:      "client_connections_total",
+		},
+		[]string{"direction", "status"},
+	)
+)
 
 type Handler struct {
 	archivalDataDir string
@@ -48,6 +61,7 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 	req *http.Request) {
 	mid, err := getMIDFromRequest(req)
 	if err != nil {
+		ClientConnections.WithLabelValues(string(kind), "invalid-mid").Inc()
 		log.Printf("Received request without mid from %s, %v\n",
 			req.RemoteAddr, err)
 		writeBadRequest(rw)
@@ -58,6 +72,8 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 	query := req.URL.Query()
 	requestStreams := query.Get("streams")
 	if requestStreams == "" {
+		ClientConnections.WithLabelValues(string(kind),
+			"missing-streams").Inc()
 		log.Printf("Received request without streams from %s\n",
 			req.RemoteAddr)
 		writeBadRequest(rw)
@@ -65,8 +81,17 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 	}
 	requestDuration := query.Get("duration")
 	var duration = 5 * time.Second
-	if d, err := strconv.Atoi(requestDuration); requestDuration != "" && err == nil {
-		duration = time.Duration(d) * time.Second
+	if requestDuration != "" {
+		if d, err := strconv.Atoi(requestDuration); err == nil {
+			duration = time.Duration(d) * time.Second
+		} else {
+			ClientConnections.WithLabelValues(string(kind),
+				"invalid-duration").Inc()
+			log.Printf("Received request with an invalid duration %s from %s\n",
+				requestDuration, req.RemoteAddr)
+			writeBadRequest(rw)
+			return
+		}
 	}
 	requestCC := query.Get("cc")
 	requestDelay := query.Get("delay")
@@ -75,6 +100,8 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 	// option).
 	metadata, err := getRequestMetadata(req)
 	if err != nil {
+		ClientConnections.WithLabelValues(string(kind),
+			"metadata-parse-error").Inc()
 		log.Info("Error while parsing metadata", "error", err)
 		writeBadRequest(rw)
 		return
@@ -86,6 +113,8 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 	// we cannot call writeBadRequest after attempting an Upgrade.
 	wsConn, err := ndt8.Upgrade(rw, req)
 	if err != nil {
+		ClientConnections.WithLabelValues(string(kind),
+			"websocket-upgrade-failed").Inc()
 		log.Info("Websocket upgrade failed", "error", err)
 		return
 	}
