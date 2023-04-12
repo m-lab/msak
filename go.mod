@@ -13,6 +13,7 @@ require (
 	github.com/m-lab/tcp-info v1.5.3
 	github.com/m-lab/uuid v1.0.1
 	github.com/marten-seemann/webtransport-go v0.2.0
+	github.com/prometheus/client_golang v1.13.0
 	github.com/quic-go/quic-go v0.33.0
 )
 
@@ -39,7 +40,6 @@ require (
 	github.com/muesli/reflow v0.3.0 // indirect
 	github.com/muesli/termenv v0.15.1 // indirect
 	github.com/onsi/ginkgo/v2 v2.2.0 // indirect
-	github.com/prometheus/client_golang v1.13.0 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
