@@ -101,6 +101,7 @@ func (c *NDT8Client) connect(ctx context.Context, serviceURL *url.URL) (*websock
 	q := serviceURL.Query()
 	q.Set("streams", fmt.Sprint(c.NumStreams))
 	q.Set("cc", c.CongestionControl)
+	q.Set("duration", fmt.Sprintf("%d", c.Length.Milliseconds()))
 	q.Set("client_arch", runtime.GOARCH)
 	q.Set("client_library_name", libraryName)
 	q.Set("client_library_version", libraryVersion)
@@ -154,7 +155,6 @@ func (c *NDT8Client) start(ctx context.Context, subtest spec.SubtestKind) error 
 		}
 		q := mURL.Query()
 		q.Set("mid", c.MeasurementID)
-		q.Set("duration", fmt.Sprintf("%d", c.Length.Milliseconds()))
 		mURL.RawQuery = q.Encode()
 	}
 
