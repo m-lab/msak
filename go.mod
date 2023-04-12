@@ -8,7 +8,6 @@ require (
 	github.com/gorilla/websocket v1.5.0
 	github.com/m-lab/access v0.0.11
 	github.com/m-lab/go v0.1.58
-	github.com/m-lab/locate v0.11.0
 	github.com/m-lab/ndt-server v0.20.17
 	github.com/m-lab/tcp-info v1.5.3
 	github.com/m-lab/uuid v1.0.1

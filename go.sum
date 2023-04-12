@@ -112,7 +112,6 @@ github.com/golang/protobuf v1.4.3/go.mod h1:oDoupMAO8OvCJWAcko0GGGIgR6R6ocIYbsSw
 github.com/golang/protobuf v1.5.0/go.mod h1:FsONVRAS9T7sI+LIUmWTfcYkHO4aIWwzhcaSAoJOfIk=
 github.com/golang/protobuf v1.5.2 h1:ROPKBNFfQgOUMifHyP+KYbvpjbdoFNs+aK7DXlji0Tw=
 github.com/golang/protobuf v1.5.2/go.mod h1:XVQd3VNwM+JqD3oG2Ue2ip4fOMUkwXdXDdiuN0vRsmY=
-github.com/gomodule/redigo v1.8.8 h1:f6cXq6RRfiyrOJEV7p3JhLDlmawGBVBBP1MggY8Mo4E=
 github.com/google/btree v0.0.0-20180813153112-4030bb1f1f0c/go.mod h1:lNA+9X1NB3Zf8V7Ke586lFgjr2dZNuvo3lPJSGZ5JPQ=
 github.com/google/btree v1.0.0/go.mod h1:lNA+9X1NB3Zf8V7Ke586lFgjr2dZNuvo3lPJSGZ5JPQ=
 github.com/google/go-cmp v0.2.0/go.mod h1:oXzfMopK8JAjlY9xF4vHSVASa0yLyX7SntLO5aqRK0M=
@@ -170,8 +169,6 @@ github.com/m-lab/access v0.0.11 h1:i2aoal7zgdzXAA7pGL5mXpM8yybURDJGZLwBMmA4Le8=
 github.com/m-lab/access v0.0.11/go.mod h1:ky+hXvIDE1VgEdWhMRJLjYonRrcvfiEJ1BEZtK6+zFQ=
 github.com/m-lab/go v0.1.58 h1:Byow2/BmhoKy6+0hHMx5WxZiD7lF7fQcnEMtaHNxkC0=
 github.com/m-lab/go v0.1.58/go.mod h1:O1D/EoVarJ8lZt9foANcqcKtwxHatBzUxXFFyC87aQQ=
-github.com/m-lab/locate v0.11.0 h1:9lU4nMSu1tlLk/q5G9hgPABuk5R/CG/jrQOv5RPnrFM=
-github.com/m-lab/locate v0.11.0/go.mod h1:yDjn89hHiOkFTxPaTIEvFDoT8ctZZBqwTTpU6TQpHYc=
 github.com/m-lab/ndt-server v0.20.17 h1:gTgHBbBgrpcyaZVGik84LIXYxHItDpvGZLnfOOs+zKA=
 github.com/m-lab/ndt-server v0.20.17/go.mod h1:NQyIilZvNVU3+EPYKmZWuZ2mHOPVwqD7c1gEPtkb+MA=
 github.com/m-lab/tcp-info v1.5.3 h1:4IspTPcNc8D8LNRvuFnID8gDiz+hxPAtYvpKZaiGGe8=
