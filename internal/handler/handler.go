@@ -61,7 +61,7 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 	req *http.Request) {
 	mid, err := getMIDFromRequest(req)
 	if err != nil {
-		ClientConnections.WithLabelValues(string(kind), "invalid-mid").Inc()
+		ClientConnections.WithLabelValues(string(kind), "missing-mid").Inc()
 		log.Printf("Received request without mid from %s, %v\n",
 			req.RemoteAddr, err)
 		writeBadRequest(rw)
@@ -168,8 +168,7 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 	}()
 
 	// Set the runtime to the requested duration.
-	timeout, cancel := context.WithTimeout(req.Context(),
-		time.Duration(duration)*time.Millisecond)
+	timeout, cancel := context.WithTimeout(req.Context(), duration)
 	defer cancel()
 
 	proto := ndt8.New(wsConn)
