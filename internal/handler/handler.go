@@ -27,6 +27,7 @@ var knownOptions = map[string]struct{}{
 	"delay":        {},
 	"cc":           {},
 	"access_token": {},
+	"mid":          {},
 }
 
 // validCCAlgorithms are the allowed congestion control algorithms.
