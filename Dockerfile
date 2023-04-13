@@ -10,8 +10,9 @@ RUN go mod download
 COPY ./ ./
 RUN ./build.sh
 
-FROM alpine
+FROM alpine:3.17.3
 WORKDIR /msak
 COPY --from=build /msak/msak-server /msak/
 
+RUN ./msak-server -h
 ENTRYPOINT ["./msak-server"]
