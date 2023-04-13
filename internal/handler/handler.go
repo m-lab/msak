@@ -29,6 +29,13 @@ var knownOptions = map[string]struct{}{
 	"access_token": {},
 }
 
+// validCCAlgorithms are the allowed congestion control algorithms.
+var validCCAlgorithms = map[string]struct{}{
+	"reno":  {},
+	"cubic": {},
+	"bbr":   {},
+}
+
 var (
 	ClientConnections = promauto.NewCounterVec(
 		prometheus.CounterOpts{
@@ -70,6 +77,7 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 	}
 
 	// Read known protocol options from the querystring and validate them.
+	clientOptions := []model.NameValue{}
 	query := req.URL.Query()
 	requestStreams := query.Get("streams")
 	if requestStreams == "" {
@@ -79,12 +87,17 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 		writeBadRequest(rw)
 		return
 	}
+	clientOptions = append(clientOptions,
+		model.NameValue{Name: "streams", Value: requestStreams})
+
 	requestDuration := query.Get("duration")
 	var duration = 5 * time.Second
 	if requestDuration != "" {
 		if d, err := strconv.Atoi(requestDuration); err == nil {
 			// Note: the provided duration must be milliseconds.
 			duration = time.Duration(d) * time.Millisecond
+			clientOptions = append(clientOptions,
+				model.NameValue{Name: "duration", Value: requestDuration})
 		} else {
 			ClientConnections.WithLabelValues(string(kind),
 				"invalid-duration").Inc()
@@ -94,8 +107,26 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 			return
 		}
 	}
+
 	requestCC := query.Get("cc")
+	// Check that the requested CC algorithm is allowed. Note that we cannot
+	// set it here since we don't have a net.Conn yet.
+	if requestCC != "" {
+		if _, ok := validCCAlgorithms[requestCC]; !ok {
+			log.Info("Requested CC algorithm is not allowed",
+				"source", req.RemoteAddr, "cc", requestCC)
+			writeBadRequest(rw)
+			return
+		}
+		clientOptions = append(clientOptions,
+			model.NameValue{Name: "cc", Value: requestCC})
+	}
+
 	requestDelay := query.Get("delay")
+	if requestDelay != "" {
+		clientOptions = append(clientOptions,
+			model.NameValue{Name: "delay", Value: requestDelay})
+	}
 
 	// Read metadata (i.e. everything in the querystring that's not a known
 	// option).
@@ -159,12 +190,7 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 		GitShortCommit: prometheusx.GitShortCommit,
 		Version:        "v0.0.1",
 		ClientMetadata: metadata,
-		ClientOptions: []model.NameValue{
-			{Name: "streams", Value: requestStreams},
-			{Name: "duration", Value: requestDuration},
-			{Name: "delay", Value: requestDelay},
-			{Name: "cc", Value: requestCC},
-		},
+		ClientOptions:  clientOptions,
 	}
 	defer func() {
 		archivalData.EndTime = time.Now()
@@ -259,12 +285,12 @@ func getRequestMetadata(req *http.Request) ([]model.NameValue, error) {
 	query := req.URL.Query()
 	filtered := []model.NameValue{}
 	for k, v := range query {
-		// This maximum length for keys and values is meant to limit abuse.
-		if len(k) > 50 || len(v[0]) > 512 {
-			return nil, errors.New("maximum key or value length exceeded")
-		}
-		// Filter known options.
+		// IGnore known options.
 		if _, ok := knownOptions[k]; !ok {
+			// This maximum length for keys and values is meant to limit abuse.
+			if len(k) > 50 || len(v[0]) > 512 {
+				return nil, errors.New("maximum key or value length exceeded")
+			}
 			filtered = append(filtered, model.NameValue{
 				Name:  k,
 				Value: v[0],
