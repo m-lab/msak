@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -62,8 +63,8 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 	mid, err := getMIDFromRequest(req)
 	if err != nil {
 		ClientConnections.WithLabelValues(string(kind), "missing-mid").Inc()
-		log.Printf("Received request without mid from %s, %v\n",
-			req.RemoteAddr, err)
+		log.Info("Received request without mid", "source", req.RemoteAddr,
+			"error", err)
 		writeBadRequest(rw)
 		return
 	}
@@ -74,8 +75,7 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 	if requestStreams == "" {
 		ClientConnections.WithLabelValues(string(kind),
 			"missing-streams").Inc()
-		log.Printf("Received request without streams from %s\n",
-			req.RemoteAddr)
+		log.Info("Received request without streams", "source", req.RemoteAddr)
 		writeBadRequest(rw)
 		return
 	}
@@ -88,8 +88,8 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 		} else {
 			ClientConnections.WithLabelValues(string(kind),
 				"invalid-duration").Inc()
-			log.Printf("Received request with an invalid duration %s from %s\n",
-				requestDuration, req.RemoteAddr)
+			log.Info("Received request with an invalid duration",
+				"source", req.RemoteAddr, "duration", requestDuration)
 			writeBadRequest(rw)
 			return
 		}
@@ -103,7 +103,8 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 	if err != nil {
 		ClientConnections.WithLabelValues(string(kind),
 			"metadata-parse-error").Inc()
-		log.Info("Error while parsing metadata", "error", err)
+		log.Info("Error while parsing metadata", "source", req.RemoteAddr,
+			"error", err)
 		writeBadRequest(rw)
 		return
 	}
@@ -116,7 +117,8 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 	if err != nil {
 		ClientConnections.WithLabelValues(string(kind),
 			"websocket-upgrade-failed").Inc()
-		log.Info("Websocket upgrade failed", "error", err)
+		log.Info("Websocket upgrade failed",
+			"ctx", fmt.Sprintf("%p", req.Context()), "error", err)
 		return
 	}
 
@@ -133,15 +135,17 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 	if requestCC != "" {
 		err = conn.SetCC(requestCC)
 		if err != nil {
-			log.Info("Failed to set cc (ctx: %p, cc: %s): %v\n", req.Context(),
-				requestCC, err)
+			log.Info("Failed to set cc", "ctx", fmt.Sprintf("%p", req.Context()),
+				"source", wsConn.RemoteAddr(),
+				"cc", requestCC, "error", err)
 		}
 	}
 
 	uuid, err := conn.UUID()
 	if err != nil {
 		// UUID() has a fallback that won't ever fail. This should not happen.
-		log.Printf("Failed to read UUID (ctx: %p): %v\n", req.Context(), err)
+		log.Error("Failed to read UUID", "ctx",
+			fmt.Sprintf("%p", req.Context()), "error", err)
 		wsConn.Close()
 		return
 	}
@@ -202,7 +206,8 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 				m.Measurement)
 		case err := <-errCh:
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure) {
-				log.Printf("Connection closed unexpectedly: %v\n", err)
+				log.Info("Connection closed unexpectedly", "context",
+					fmt.Sprintf("%p", timeout), "error", err)
 				// TODO: Add Prometheus metric
 			}
 			return
@@ -215,7 +220,7 @@ func (h *Handler) writeResult(uuid string, kind model.TestDirection, result *mod
 		h.archivalDataDir, "ndt8", string(kind), uuid,
 		result)
 	if err != nil {
-		log.Printf("failed to write ndt8 result: %v\n", err)
+		log.Error("failed to write ndt8 result", "uuid", uuid, "error", err)
 		return
 	}
 }
