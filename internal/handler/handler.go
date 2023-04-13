@@ -285,7 +285,7 @@ func getRequestMetadata(req *http.Request) ([]model.NameValue, error) {
 	query := req.URL.Query()
 	filtered := []model.NameValue{}
 	for k, v := range query {
-		// IGnore known options.
+		// Ignore known options.
 		if _, ok := knownOptions[k]; !ok {
 			// This maximum length for keys and values is meant to limit abuse.
 			if len(k) > 50 || len(v[0]) > 512 {
