@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -26,6 +27,13 @@ var knownOptions = map[string]struct{}{
 	"delay":        {},
 	"cc":           {},
 	"access_token": {},
+}
+
+// validCCAlgorithms are the allowed congestion control algorithms.
+var validCCAlgorithms = map[string]struct{}{
+	"reno":  {},
+	"cubic": {},
+	"bbr":   {},
 }
 
 var (
@@ -62,40 +70,63 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 	mid, err := getMIDFromRequest(req)
 	if err != nil {
 		ClientConnections.WithLabelValues(string(kind), "missing-mid").Inc()
-		log.Printf("Received request without mid from %s, %v\n",
-			req.RemoteAddr, err)
+		log.Info("Received request without mid", "source", req.RemoteAddr,
+			"error", err)
 		writeBadRequest(rw)
 		return
 	}
 
 	// Read known protocol options from the querystring and validate them.
+	clientOptions := []model.NameValue{}
 	query := req.URL.Query()
 	requestStreams := query.Get("streams")
 	if requestStreams == "" {
 		ClientConnections.WithLabelValues(string(kind),
 			"missing-streams").Inc()
-		log.Printf("Received request without streams from %s\n",
-			req.RemoteAddr)
+		log.Info("Received request without streams", "source", req.RemoteAddr)
 		writeBadRequest(rw)
 		return
 	}
+	clientOptions = append(clientOptions,
+		model.NameValue{Name: "streams", Value: requestStreams})
+
 	requestDuration := query.Get("duration")
 	var duration = 5 * time.Second
 	if requestDuration != "" {
 		if d, err := strconv.Atoi(requestDuration); err == nil {
 			// Note: the provided duration must be milliseconds.
 			duration = time.Duration(d) * time.Millisecond
+			clientOptions = append(clientOptions,
+				model.NameValue{Name: "duration", Value: requestDuration})
 		} else {
 			ClientConnections.WithLabelValues(string(kind),
 				"invalid-duration").Inc()
-			log.Printf("Received request with an invalid duration %s from %s\n",
-				requestDuration, req.RemoteAddr)
+			log.Info("Received request with an invalid duration",
+				"source", req.RemoteAddr, "duration", requestDuration)
 			writeBadRequest(rw)
 			return
 		}
 	}
+
 	requestCC := query.Get("cc")
+	// Check that the requested CC algorithm is allowed. Note that we cannot
+	// set it here since we don't have a net.Conn yet.
+	if requestCC != "" {
+		if _, ok := validCCAlgorithms[requestCC]; !ok {
+			log.Info("Requested CC algorithm is not allowed",
+				"source", req.RemoteAddr, "cc", requestCC)
+			writeBadRequest(rw)
+			return
+		}
+		clientOptions = append(clientOptions,
+			model.NameValue{Name: "cc", Value: requestCC})
+	}
+
 	requestDelay := query.Get("delay")
+	if requestDelay != "" {
+		clientOptions = append(clientOptions,
+			model.NameValue{Name: "delay", Value: requestDelay})
+	}
 
 	// Read metadata (i.e. everything in the querystring that's not a known
 	// option).
@@ -103,7 +134,8 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 	if err != nil {
 		ClientConnections.WithLabelValues(string(kind),
 			"metadata-parse-error").Inc()
-		log.Info("Error while parsing metadata", "error", err)
+		log.Info("Error while parsing metadata", "source", req.RemoteAddr,
+			"error", err)
 		writeBadRequest(rw)
 		return
 	}
@@ -116,7 +148,8 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 	if err != nil {
 		ClientConnections.WithLabelValues(string(kind),
 			"websocket-upgrade-failed").Inc()
-		log.Info("Websocket upgrade failed", "error", err)
+		log.Info("Websocket upgrade failed",
+			"ctx", fmt.Sprintf("%p", req.Context()), "error", err)
 		return
 	}
 
@@ -133,15 +166,17 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 	if requestCC != "" {
 		err = conn.SetCC(requestCC)
 		if err != nil {
-			log.Info("Failed to set cc (ctx: %p, cc: %s): %v\n", req.Context(),
-				requestCC, err)
+			log.Info("Failed to set cc", "ctx", fmt.Sprintf("%p", req.Context()),
+				"source", wsConn.RemoteAddr(),
+				"cc", requestCC, "error", err)
 		}
 	}
 
 	uuid, err := conn.UUID()
 	if err != nil {
 		// UUID() has a fallback that won't ever fail. This should not happen.
-		log.Printf("Failed to read UUID (ctx: %p): %v\n", req.Context(), err)
+		log.Error("Failed to read UUID", "ctx",
+			fmt.Sprintf("%p", req.Context()), "error", err)
 		wsConn.Close()
 		return
 	}
@@ -155,12 +190,7 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 		GitShortCommit: prometheusx.GitShortCommit,
 		Version:        "v0.0.1",
 		ClientMetadata: metadata,
-		ClientOptions: []model.NameValue{
-			{Name: "streams", Value: requestStreams},
-			{Name: "duration", Value: requestDuration},
-			{Name: "delay", Value: requestDelay},
-			{Name: "cc", Value: requestCC},
-		},
+		ClientOptions:  clientOptions,
 	}
 	defer func() {
 		archivalData.EndTime = time.Now()
@@ -202,7 +232,8 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 				m.Measurement)
 		case err := <-errCh:
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure) {
-				log.Printf("Connection closed unexpectedly: %v\n", err)
+				log.Info("Connection closed unexpectedly", "context",
+					fmt.Sprintf("%p", timeout), "error", err)
 				// TODO: Add Prometheus metric
 			}
 			return
@@ -215,7 +246,7 @@ func (h *Handler) writeResult(uuid string, kind model.TestDirection, result *mod
 		h.archivalDataDir, "ndt8", string(kind), uuid,
 		result)
 	if err != nil {
-		log.Printf("failed to write ndt8 result: %v\n", err)
+		log.Error("failed to write ndt8 result", "uuid", uuid, "error", err)
 		return
 	}
 }
@@ -254,12 +285,12 @@ func getRequestMetadata(req *http.Request) ([]model.NameValue, error) {
 	query := req.URL.Query()
 	filtered := []model.NameValue{}
 	for k, v := range query {
-		// This maximum length for keys and values is meant to limit abuse.
-		if len(k) > 50 || len(v[0]) > 512 {
-			return nil, errors.New("maximum key or value length exceeded")
-		}
-		// Filter known options.
+		// Ignore known options.
 		if _, ok := knownOptions[k]; !ok {
+			// This maximum length for keys and values is meant to limit abuse.
+			if len(k) > 50 || len(v[0]) > 512 {
+				return nil, errors.New("maximum key or value length exceeded")
+			}
 			filtered = append(filtered, model.NameValue{
 				Name:  k,
 				Value: v[0],
