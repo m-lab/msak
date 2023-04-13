@@ -71,11 +71,16 @@ func main() {
 		rtx.Must(err, "Failed to load verifier")
 	}
 	// Enforce tokens on uploads and downloads.
+	ndt8TxPaths := controller.Paths{
+		spec.DownloadPath: true,
+		spec.UploadPath:   true,
+	}
 	ndt8TokenPaths := controller.Paths{
 		spec.DownloadPath: true,
 		spec.UploadPath:   true,
 	}
-	acm, _ := controller.Setup(ctx, v, tokenVerify, tokenMachine, nil, ndt8TokenPaths)
+	acm, _ := controller.Setup(ctx, v, tokenVerify, tokenMachine,
+		ndt8TxPaths, ndt8TokenPaths)
 
 	ndt8Mux := http.NewServeMux()
 	ndt8Handler := handler.New(*flagDataDir)
