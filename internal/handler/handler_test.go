@@ -197,7 +197,7 @@ func TestHandler_Validation(t *testing.T) {
 		},
 		{
 			name:       "missing Upgrade header",
-			target:     "/?mid=test&streams=2&duration=5s",
+			target:     "/?mid=test&streams=2&duration=5000",
 			statusCode: http.StatusBadRequest,
 		},
 	}
