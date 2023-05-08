@@ -160,6 +160,7 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 	conn := netx.ToConnInfo(wsConn.UnderlyingConn())
 
 	// If a congestion control algorithm was requested, attempt to set it here.
+	// This can only be done after upgrading the connection.
 	// Errors are not fatal: for example, the client might have requested a
 	// congestion control algorithm that's not available on this system. In
 	// this case, we should still run with the default and record the requested

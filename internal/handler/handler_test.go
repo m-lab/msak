@@ -230,6 +230,11 @@ func TestHandler_Validation(t *testing.T) {
 			target:     "/?mid=test&streams=2&duration=5000",
 			statusCode: http.StatusBadRequest,
 		},
+		{
+			name:       "unsupported CC",
+			target:     "/?mid=test&streams=2&cc=invalid",
+			statusCode: http.StatusBadRequest,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
