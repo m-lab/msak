@@ -44,3 +44,14 @@ type NDT8Result struct {
 	// querystring parameter sent by the client.
 	ClientMetadata []NameValue
 }
+
+// TestDirection indicates the direction of the test.
+type TestDirection string
+
+const (
+	// SubtestDownload is a download subtest
+	DirectionDownload = TestDirection("download")
+
+	// SubtestUpload is a upload subtest
+	DirectionUpload = TestDirection("upload")
+)
