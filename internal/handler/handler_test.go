@@ -139,6 +139,36 @@ func TestHandler_Download(t *testing.T) {
 	}
 }
 
+func TestHandler_DownloadInvalidCC(t *testing.T) {
+	// Server setup.
+	tempDir := t.TempDir()
+	h := handler.New(tempDir)
+
+	server := setupTestServer(tempDir, http.HandlerFunc(h.Download))
+	server.Start()
+	defer server.Close()
+
+	u, err := url.Parse(server.URL)
+	rtx.Must(err, "cannot get server URL")
+	u.Scheme = "ws"
+	q := u.Query()
+	q.Add("mid", "test-mid")
+	q.Add("streams", "1")
+	q.Add("duration", "500")
+	q.Add("cc", "invalid")
+	u.RawQuery = q.Encode()
+
+	dialer := setupTestWSDialer(u)
+
+	headers := http.Header{}
+	headers.Add("Sec-WebSocket-Protocol", spec.SecWebSocketProtocol)
+
+	_, _, err = dialer.Dial(u.String(), headers)
+	if err == nil {
+		t.Fatalf("expected error on invalid cc, got nil")
+	}
+}
+
 // Utility function to drain sender/receiver channels in tests.
 func drain(t *testing.T, timeout context.Context, senderCh,
 	receiverCh <-chan model.WireMeasurement, errCh <-chan error) {
