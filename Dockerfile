@@ -14,6 +14,7 @@ FROM alpine:3.17.3
 WORKDIR /msak
 COPY --from=build /msak/msak-server /msak/
 COPY --from=build /msak/generate-schema /msak/
+COPY --from=build /msak/ndt8.json /msak/
 
 RUN ./msak-server -h
 ENTRYPOINT ["./msak-server"]

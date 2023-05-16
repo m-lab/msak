@@ -1,0 +1,606 @@
+[
+ {
+  "name": "GitShortCommit",
+  "type": "STRING"
+ },
+ {
+  "name": "Version",
+  "type": "STRING"
+ },
+ {
+  "name": "Direction",
+  "type": "STRING"
+ },
+ {
+  "name": "MeasurementID",
+  "type": "STRING"
+ },
+ {
+  "name": "UUID",
+  "type": "STRING"
+ },
+ {
+  "name": "Server",
+  "type": "STRING"
+ },
+ {
+  "name": "Client",
+  "type": "STRING"
+ },
+ {
+  "name": "CCAlgorithm",
+  "type": "STRING"
+ },
+ {
+  "name": "StartTime",
+  "type": "TIMESTAMP"
+ },
+ {
+  "name": "EndTime",
+  "type": "TIMESTAMP"
+ },
+ {
+  "fields": [
+   {
+    "name": "BytesSent",
+    "type": "INTEGER"
+   },
+   {
+    "name": "BytesReceived",
+    "type": "INTEGER"
+   },
+   {
+    "name": "ElapsedTime",
+    "type": "INTEGER"
+   },
+   {
+    "fields": [
+     {
+      "name": "BW",
+      "type": "INTEGER"
+     },
+     {
+      "name": "MinRTT",
+      "type": "INTEGER"
+     },
+     {
+      "name": "PacingGain",
+      "type": "INTEGER"
+     },
+     {
+      "name": "CwndGain",
+      "type": "INTEGER"
+     }
+    ],
+    "name": "BBRInfo",
+    "type": "RECORD"
+   },
+   {
+    "fields": [
+     {
+      "name": "State",
+      "type": "INTEGER"
+     },
+     {
+      "name": "CAState",
+      "type": "INTEGER"
+     },
+     {
+      "name": "Retransmits",
+      "type": "INTEGER"
+     },
+     {
+      "name": "Probes",
+      "type": "INTEGER"
+     },
+     {
+      "name": "Backoff",
+      "type": "INTEGER"
+     },
+     {
+      "name": "Options",
+      "type": "INTEGER"
+     },
+     {
+      "name": "WScale",
+      "type": "INTEGER"
+     },
+     {
+      "name": "AppLimited",
+      "type": "INTEGER"
+     },
+     {
+      "name": "RTO",
+      "type": "INTEGER"
+     },
+     {
+      "name": "ATO",
+      "type": "INTEGER"
+     },
+     {
+      "name": "SndMSS",
+      "type": "INTEGER"
+     },
+     {
+      "name": "RcvMSS",
+      "type": "INTEGER"
+     },
+     {
+      "name": "Unacked",
+      "type": "INTEGER"
+     },
+     {
+      "name": "Sacked",
+      "type": "INTEGER"
+     },
+     {
+      "name": "Lost",
+      "type": "INTEGER"
+     },
+     {
+      "name": "Retrans",
+      "type": "INTEGER"
+     },
+     {
+      "name": "Fackets",
+      "type": "INTEGER"
+     },
+     {
+      "name": "LastDataSent",
+      "type": "INTEGER"
+     },
+     {
+      "name": "LastAckSent",
+      "type": "INTEGER"
+     },
+     {
+      "name": "LastDataRecv",
+      "type": "INTEGER"
+     },
+     {
+      "name": "LastAckRecv",
+      "type": "INTEGER"
+     },
+     {
+      "name": "PMTU",
+      "type": "INTEGER"
+     },
+     {
+      "name": "RcvSsThresh",
+      "type": "INTEGER"
+     },
+     {
+      "name": "RTT",
+      "type": "INTEGER"
+     },
+     {
+      "name": "RTTVar",
+      "type": "INTEGER"
+     },
+     {
+      "name": "SndSsThresh",
+      "type": "INTEGER"
+     },
+     {
+      "name": "SndCwnd",
+      "type": "INTEGER"
+     },
+     {
+      "name": "AdvMSS",
+      "type": "INTEGER"
+     },
+     {
+      "name": "Reordering",
+      "type": "INTEGER"
+     },
+     {
+      "name": "RcvRTT",
+      "type": "INTEGER"
+     },
+     {
+      "name": "RcvSpace",
+      "type": "INTEGER"
+     },
+     {
+      "name": "TotalRetrans",
+      "type": "INTEGER"
+     },
+     {
+      "name": "PacingRate",
+      "type": "INTEGER"
+     },
+     {
+      "name": "MaxPacingRate",
+      "type": "INTEGER"
+     },
+     {
+      "name": "BytesAcked",
+      "type": "INTEGER"
+     },
+     {
+      "name": "BytesReceived",
+      "type": "INTEGER"
+     },
+     {
+      "name": "SegsOut",
+      "type": "INTEGER"
+     },
+     {
+      "name": "SegsIn",
+      "type": "INTEGER"
+     },
+     {
+      "name": "NotsentBytes",
+      "type": "INTEGER"
+     },
+     {
+      "name": "MinRTT",
+      "type": "INTEGER"
+     },
+     {
+      "name": "DataSegsIn",
+      "type": "INTEGER"
+     },
+     {
+      "name": "DataSegsOut",
+      "type": "INTEGER"
+     },
+     {
+      "name": "DeliveryRate",
+      "type": "INTEGER"
+     },
+     {
+      "name": "BusyTime",
+      "type": "INTEGER"
+     },
+     {
+      "name": "RWndLimited",
+      "type": "INTEGER"
+     },
+     {
+      "name": "SndBufLimited",
+      "type": "INTEGER"
+     },
+     {
+      "name": "Delivered",
+      "type": "INTEGER"
+     },
+     {
+      "name": "DeliveredCE",
+      "type": "INTEGER"
+     },
+     {
+      "name": "BytesSent",
+      "type": "INTEGER"
+     },
+     {
+      "name": "BytesRetrans",
+      "type": "INTEGER"
+     },
+     {
+      "name": "DSackDups",
+      "type": "INTEGER"
+     },
+     {
+      "name": "ReordSeen",
+      "type": "INTEGER"
+     },
+     {
+      "name": "RcvOooPack",
+      "type": "INTEGER"
+     },
+     {
+      "name": "SndWnd",
+      "type": "INTEGER"
+     },
+     {
+      "name": "ElapsedTime",
+      "type": "INTEGER"
+     }
+    ],
+    "name": "TCPInfo",
+    "type": "RECORD"
+   }
+  ],
+  "mode": "REPEATED",
+  "name": "ServerMeasurements",
+  "type": "RECORD"
+ },
+ {
+  "fields": [
+   {
+    "name": "BytesSent",
+    "type": "INTEGER"
+   },
+   {
+    "name": "BytesReceived",
+    "type": "INTEGER"
+   },
+   {
+    "name": "ElapsedTime",
+    "type": "INTEGER"
+   },
+   {
+    "fields": [
+     {
+      "name": "BW",
+      "type": "INTEGER"
+     },
+     {
+      "name": "MinRTT",
+      "type": "INTEGER"
+     },
+     {
+      "name": "PacingGain",
+      "type": "INTEGER"
+     },
+     {
+      "name": "CwndGain",
+      "type": "INTEGER"
+     }
+    ],
+    "name": "BBRInfo",
+    "type": "RECORD"
+   },
+   {
+    "fields": [
+     {
+      "name": "State",
+      "type": "INTEGER"
+     },
+     {
+      "name": "CAState",
+      "type": "INTEGER"
+     },
+     {
+      "name": "Retransmits",
+      "type": "INTEGER"
+     },
+     {
+      "name": "Probes",
+      "type": "INTEGER"
+     },
+     {
+      "name": "Backoff",
+      "type": "INTEGER"
+     },
+     {
+      "name": "Options",
+      "type": "INTEGER"
+     },
+     {
+      "name": "WScale",
+      "type": "INTEGER"
+     },
+     {
+      "name": "AppLimited",
+      "type": "INTEGER"
+     },
+     {
+      "name": "RTO",
+      "type": "INTEGER"
+     },
+     {
+      "name": "ATO",
+      "type": "INTEGER"
+     },
+     {
+      "name": "SndMSS",
+      "type": "INTEGER"
+     },
+     {
+      "name": "RcvMSS",
+      "type": "INTEGER"
+     },
+     {
+      "name": "Unacked",
+      "type": "INTEGER"
+     },
+     {
+      "name": "Sacked",
+      "type": "INTEGER"
+     },
+     {
+      "name": "Lost",
+      "type": "INTEGER"
+     },
+     {
+      "name": "Retrans",
+      "type": "INTEGER"
+     },
+     {
+      "name": "Fackets",
+      "type": "INTEGER"
+     },
+     {
+      "name": "LastDataSent",
+      "type": "INTEGER"
+     },
+     {
+      "name": "LastAckSent",
+      "type": "INTEGER"
+     },
+     {
+      "name": "LastDataRecv",
+      "type": "INTEGER"
+     },
+     {
+      "name": "LastAckRecv",
+      "type": "INTEGER"
+     },
+     {
+      "name": "PMTU",
+      "type": "INTEGER"
+     },
+     {
+      "name": "RcvSsThresh",
+      "type": "INTEGER"
+     },
+     {
+      "name": "RTT",
+      "type": "INTEGER"
+     },
+     {
+      "name": "RTTVar",
+      "type": "INTEGER"
+     },
+     {
+      "name": "SndSsThresh",
+      "type": "INTEGER"
+     },
+     {
+      "name": "SndCwnd",
+      "type": "INTEGER"
+     },
+     {
+      "name": "AdvMSS",
+      "type": "INTEGER"
+     },
+     {
+      "name": "Reordering",
+      "type": "INTEGER"
+     },
+     {
+      "name": "RcvRTT",
+      "type": "INTEGER"
+     },
+     {
+      "name": "RcvSpace",
+      "type": "INTEGER"
+     },
+     {
+      "name": "TotalRetrans",
+      "type": "INTEGER"
+     },
+     {
+      "name": "PacingRate",
+      "type": "INTEGER"
+     },
+     {
+      "name": "MaxPacingRate",
+      "type": "INTEGER"
+     },
+     {
+      "name": "BytesAcked",
+      "type": "INTEGER"
+     },
+     {
+      "name": "BytesReceived",
+      "type": "INTEGER"
+     },
+     {
+      "name": "SegsOut",
+      "type": "INTEGER"
+     },
+     {
+      "name": "SegsIn",
+      "type": "INTEGER"
+     },
+     {
+      "name": "NotsentBytes",
+      "type": "INTEGER"
+     },
+     {
+      "name": "MinRTT",
+      "type": "INTEGER"
+     },
+     {
+      "name": "DataSegsIn",
+      "type": "INTEGER"
+     },
+     {
+      "name": "DataSegsOut",
+      "type": "INTEGER"
+     },
+     {
+      "name": "DeliveryRate",
+      "type": "INTEGER"
+     },
+     {
+      "name": "BusyTime",
+      "type": "INTEGER"
+     },
+     {
+      "name": "RWndLimited",
+      "type": "INTEGER"
+     },
+     {
+      "name": "SndBufLimited",
+      "type": "INTEGER"
+     },
+     {
+      "name": "Delivered",
+      "type": "INTEGER"
+     },
+     {
+      "name": "DeliveredCE",
+      "type": "INTEGER"
+     },
+     {
+      "name": "BytesSent",
+      "type": "INTEGER"
+     },
+     {
+      "name": "BytesRetrans",
+      "type": "INTEGER"
+     },
+     {
+      "name": "DSackDups",
+      "type": "INTEGER"
+     },
+     {
+      "name": "ReordSeen",
+      "type": "INTEGER"
+     },
+     {
+      "name": "RcvOooPack",
+      "type": "INTEGER"
+     },
+     {
+      "name": "SndWnd",
+      "type": "INTEGER"
+     },
+     {
+      "name": "ElapsedTime",
+      "type": "INTEGER"
+     }
+    ],
+    "name": "TCPInfo",
+    "type": "RECORD"
+   }
+  ],
+  "mode": "REPEATED",
+  "name": "ClientMeasurements",
+  "type": "RECORD"
+ },
+ {
+  "fields": [
+   {
+    "name": "Name",
+    "type": "STRING"
+   },
+   {
+    "name": "Value",
+    "type": "STRING"
+   }
+  ],
+  "mode": "REPEATED",
+  "name": "ClientOptions",
+  "type": "RECORD"
+ },
+ {
+  "fields": [
+   {
+    "name": "Name",
+    "type": "STRING"
+   },
+   {
+    "name": "Value",
+    "type": "STRING"
+   }
+  ],
+  "mode": "REPEATED",
+  "name": "ClientMetadata",
+  "type": "RECORD"
+ }
+]
