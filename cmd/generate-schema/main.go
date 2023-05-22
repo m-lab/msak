@@ -4,6 +4,7 @@ import (
 	"flag"
 	"io/ioutil"
 
+	"github.com/m-lab/go/cloud/bqx"
 	"github.com/m-lab/go/rtx"
 	"github.com/m-lab/msak/pkg/ndt8/model"
 
@@ -24,6 +25,7 @@ func main() {
 	ndt8Result := model.NDT8Result{}
 	sch, err := bigquery.InferSchema(ndt8Result)
 	rtx.Must(err, "failed to generate ndt8 schema")
+	sch = bqx.RemoveRequired(sch)
 	b, err := sch.ToJSONFields()
 	rtx.Must(err, "failed to marshal schema")
 	ioutil.WriteFile(ndt8Schema, b, 0o644)
