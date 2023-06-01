@@ -38,7 +38,16 @@ var validCCAlgorithms = map[string]struct{}{
 }
 
 var (
-	ConnectionErrors = promauto.NewCounterVec(
+	testsTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "msak",
+			Subsystem: "ndt8",
+			Name:      "tests_total",
+			Help:      "Counter of ndt8 tests",
+		},
+		[]string{"direction"},
+	)
+	connectionErrors = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "msak",
 			Subsystem: "ndt8",
@@ -47,7 +56,7 @@ var (
 		},
 		[]string{"direction", "status"},
 	)
-	FileWrites = promauto.NewCounterVec(
+	fileWrites = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "msak",
 			Subsystem: "ndt8",
@@ -80,7 +89,7 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 	req *http.Request) {
 	mid, err := getMIDFromRequest(req)
 	if err != nil {
-		ConnectionErrors.WithLabelValues(string(kind), "missing-mid").Inc()
+		connectionErrors.WithLabelValues(string(kind), "missing-mid").Inc()
 		log.Info("Received request without mid", "source", req.RemoteAddr,
 			"error", err)
 		writeBadRequest(rw)
@@ -92,7 +101,7 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 	query := req.URL.Query()
 	requestStreams := query.Get("streams")
 	if requestStreams == "" {
-		ConnectionErrors.WithLabelValues(string(kind),
+		connectionErrors.WithLabelValues(string(kind),
 			"missing-streams").Inc()
 		log.Info("Received request without streams", "source", req.RemoteAddr)
 		writeBadRequest(rw)
@@ -110,7 +119,7 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 			clientOptions = append(clientOptions,
 				model.NameValue{Name: "duration", Value: requestDuration})
 		} else {
-			ConnectionErrors.WithLabelValues(string(kind),
+			connectionErrors.WithLabelValues(string(kind),
 				"invalid-duration").Inc()
 			log.Info("Received request with an invalid duration",
 				"source", req.RemoteAddr, "duration", requestDuration)
@@ -143,7 +152,7 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 	// option).
 	metadata, err := getRequestMetadata(req)
 	if err != nil {
-		ConnectionErrors.WithLabelValues(string(kind),
+		connectionErrors.WithLabelValues(string(kind),
 			"metadata-parse-error").Inc()
 		log.Info("Error while parsing metadata", "source", req.RemoteAddr,
 			"error", err)
@@ -157,7 +166,7 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 	// we cannot call writeBadRequest after attempting an Upgrade.
 	wsConn, err := ndt8.Upgrade(rw, req)
 	if err != nil {
-		ConnectionErrors.WithLabelValues(string(kind),
+		connectionErrors.WithLabelValues(string(kind),
 			"websocket-upgrade-failed").Inc()
 		log.Info("Websocket upgrade failed",
 			"ctx", fmt.Sprintf("%p", req.Context()), "error", err)
@@ -209,6 +218,8 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 		h.writeResult(uuid, kind, &archivalData)
 	}()
 
+	testsTotal.WithLabelValues(string(kind)).Inc()
+
 	// Set the runtime to the requested duration.
 	timeout, cancel := context.WithTimeout(req.Context(), duration)
 	defer cancel()
@@ -247,6 +258,8 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 				log.Info("Connection closed unexpectedly", "context",
 					fmt.Sprintf("%p", timeout), "error", err)
 				// TODO: Add Prometheus metric
+
+				return
 			}
 			return
 		}
@@ -258,10 +271,10 @@ func (h *Handler) writeResult(uuid string, kind model.TestDirection, result *mod
 		h.archivalDataDir, "ndt8", string(kind), uuid, result)
 	if err != nil {
 		log.Error("failed to write ndt8 result", "error", err)
-		FileWrites.WithLabelValues(string(kind), "error").Inc()
+		fileWrites.WithLabelValues(string(kind), "error").Inc()
 		return
 	}
-	FileWrites.WithLabelValues(string(kind), "ok").Inc()
+	fileWrites.WithLabelValues(string(kind), "ok").Inc()
 }
 
 // getMIDFromRequest extracts the measurement id ("mid") from a given HTTP
