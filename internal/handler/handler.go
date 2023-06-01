@@ -54,7 +54,7 @@ var (
 			Name:      "connection_errors_total",
 			Help:      "Counter of connection errors.",
 		},
-		[]string{"direction", "status"},
+		[]string{"direction", "error"},
 	)
 	fileWrites = promauto.NewCounterVec(
 		prometheus.CounterOpts{
@@ -258,8 +258,6 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 				log.Info("Connection closed unexpectedly", "context",
 					fmt.Sprintf("%p", timeout), "error", err)
 				// TODO: Add Prometheus metric
-
-				return
 			}
 			return
 		}
