@@ -47,7 +47,7 @@ var (
 		},
 		[]string{"direction", "status"},
 	)
-	WrittenFiles = promauto.NewCounterVec(
+	FileWrites = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "msak",
 			Subsystem: "ndt8",
@@ -258,10 +258,10 @@ func (h *Handler) writeResult(uuid string, kind model.TestDirection, result *mod
 		h.archivalDataDir, "ndt8", string(kind), uuid, result)
 	if err != nil {
 		log.Error("failed to write ndt8 result", "error", err)
-		WrittenFiles.WithLabelValues(string(kind), "error").Inc()
+		FileWrites.WithLabelValues(string(kind), "error").Inc()
 		return
 	}
-	WrittenFiles.WithLabelValues(string(kind), "ok").Inc()
+	FileWrites.WithLabelValues(string(kind), "ok").Inc()
 }
 
 // getMIDFromRequest extracts the measurement id ("mid") from a given HTTP
