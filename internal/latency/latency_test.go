@@ -254,9 +254,9 @@ func Test_processS2CPacket(t *testing.T) {
 			session.Value().PacketsReceived.Load())
 	}
 	// The measurement slice should contain one measurement.
-	if len(session.Value().Measurements) != 1 {
+	if len(session.Value().Packets) != 1 {
 		t.Errorf("wrong number of measurements (expected %d, got %d)", 1,
-			len(session.Value().Measurements))
+			len(session.Value().Packets))
 	}
 
 	// Check the computed RTT.

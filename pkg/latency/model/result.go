@@ -51,10 +51,10 @@ type ArchivalData struct {
 // Session is the in-memory structure holding information about a UDP latency
 // measurement session.
 type Session struct {
-	ID           string
-	StartTime    time.Time
-	EndTime      time.Time
-	Measurements []LatencyPacket
+	ID        string
+	StartTime time.Time
+	EndTime   time.Time
+	Packets   []LatencyPacket
 
 	LastRTT         *atomic.Int64
 	PacketsSent     *atomic.Int64
@@ -80,7 +80,7 @@ type Summary struct {
 func NewSession(id string) *Session {
 	return &Session{
 		ID:              id,
-		Measurements:    make([]LatencyPacket, 0),
+		Packets:         make([]LatencyPacket, 0),
 		StartTime:       time.Now(),
 		Started:         false,
 		StartedMu:       &sync.Mutex{},
@@ -99,7 +99,7 @@ func (s *Session) Archive() *ArchivalData {
 		GitShortCommit:  prometheusx.GitShortCommit,
 		Version:         "",
 		StartTime:       s.StartTime,
-		Packets:         s.Measurements,
+		Packets:         s.Packets,
 		PacketsSent:     int(s.PacketsSent.Load()),
 		PacketsReceived: int(s.PacketsReceived.Load()),
 	}

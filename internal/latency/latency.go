@@ -165,8 +165,8 @@ func (h *Handler) processPacket(conn net.PacketConn, remoteAddr net.Addr,
 		}
 		// TODO: prometheus metric?
 		session.PacketsReceived.Add(1)
-		session.Measurements = append(
-			session.Measurements, m)
+		session.Packets = append(
+			session.Packets, m)
 		return nil
 	}
 
