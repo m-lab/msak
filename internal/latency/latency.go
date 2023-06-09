@@ -18,6 +18,7 @@ import (
 
 var errorUnauthorized = errors.New("unauthorized")
 
+// Handler is the handler for latency tests.
 type Handler struct {
 	dataDir  string
 	sessions *ttlcache.Cache[string, *model.Session]
@@ -72,10 +73,18 @@ func (h *Handler) Authorize(rw http.ResponseWriter, req *http.Request) {
 	rw.Write([]byte(mid))
 }
 
+// Result returns a result for a given measurement id. Possible status codes
+// are:
+// - 400 if the request does not contain a mid
+// - 404 if the mid is not found in the sessions cache
+// - 500 if the session JSON cannot be marshalled
 func (h *Handler) Result(rw http.ResponseWriter, req *http.Request) {
-	var mid string
-	if mid = req.URL.Query().Get("mid"); mid == "" {
+	mid, err := handler.GetMIDFromRequest(req)
+	if err != nil {
+		log.Info("Received request without mid", "source", req.RemoteAddr,
+			"error", err)
 		rw.WriteHeader(http.StatusBadRequest)
+		rw.Header().Set("Connection", "Close")
 		return
 	}
 	// TODO: mfence?
@@ -137,6 +146,7 @@ func (h *Handler) sendLoop(ctx context.Context, conn net.PacketConn,
 	return err
 }
 
+// processPacket processes a single UDP latency packet.
 func (h *Handler) processPacket(conn net.PacketConn, remoteAddr net.Addr,
 	packet []byte, recvTime time.Time) error {
 	// Attempt to unmarshal the packet.
@@ -184,6 +194,8 @@ func (h *Handler) processPacket(conn net.PacketConn, remoteAddr net.Addr,
 	return nil
 }
 
+// ProcessPacketLoop is the main packet processing loop. For each incoming
+// packet, it records its timestamp and acts depending on the packet type.
 func (h *Handler) ProcessPacketLoop(conn net.PacketConn) {
 	log.Info("Accepting UDP packets...")
 	buf := make([]byte, 1024)
