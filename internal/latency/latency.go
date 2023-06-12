@@ -133,6 +133,9 @@ func (h *Handler) sendLoop(ctx context.Context, conn net.PacketConn,
 		session.SendTimesMu.Lock()
 		defer session.SendTimesMu.Unlock()
 		session.SendTimes[seq] = time.Now()
+		// As the kernel's socket buffers are usually much larger than the
+		// packets we send here, calling conn.WriteTo is expected to take a
+		// negligible time.
 		n, writeErr := conn.WriteTo(b, remoteAddr)
 		if err != nil {
 			err = writeErr
