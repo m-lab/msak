@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/log"
 	"github.com/jellydator/ttlcache/v3"
 	"github.com/m-lab/go/memoryless"
+	"github.com/m-lab/go/rtx"
 	"github.com/m-lab/msak/internal/handler"
 	"github.com/m-lab/msak/internal/persistence"
 	"github.com/m-lab/msak/pkg/latency/model"
@@ -123,22 +124,26 @@ func (h *Handler) sendLoop(ctx context.Context, conn net.PacketConn,
 			LastRTT: int(session.LastRTT.Load()),
 		})
 
-		if err != nil {
-			err = marshalErr
-			return
-		}
+		// This should never happen, since we should always be able to marshal
+		// a LatencyPacket struct.
+		rtx.Must(marshalErr, "cannot marshal LatencyPacket")
+
+		// Call time.Now() just before writing to the socket. The RTT will
+		// include the ping packet's write time. This is intentional.
+		session.SendTimesMu.Lock()
+		defer session.SendTimesMu.Unlock()
+		session.SendTimes[seq] = time.Now()
 		n, writeErr := conn.WriteTo(b, remoteAddr)
 		if err != nil {
 			err = writeErr
+			cancel()
 			return
 		}
 		if n != len(b) {
 			err = errors.New("partial write")
+			cancel()
 			return
 		}
-		session.SendTimesMu.Lock()
-		defer session.SendTimesMu.Unlock()
-		session.SendTimes[seq] = time.Now()
 		session.PacketsSent.Add(1)
 		seq++
 
