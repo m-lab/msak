@@ -16,6 +16,8 @@ import (
 	"github.com/m-lab/msak/pkg/latency/model"
 )
 
+const sendDuration = 5 * time.Second
+
 var errorUnauthorized = errors.New("unauthorized")
 
 // Handler is the handler for latency tests.
@@ -106,10 +108,14 @@ func (h *Handler) Result(rw http.ResponseWriter, req *http.Request) {
 // sendLoop sends UDP pings with progressive sequence numbers until the context
 // expires or is canceled.
 func (h *Handler) sendLoop(ctx context.Context, conn net.PacketConn,
-	remoteAddr net.Addr, session *model.Session) error {
+	remoteAddr net.Addr, session *model.Session, duration time.Duration) error {
 	seq := 0
 	var err error
-	memoryless.Run(ctx, func() {
+
+	timeout, cancel := context.WithTimeout(ctx, duration)
+	defer cancel()
+
+	memoryless.Run(timeout, func() {
 		b, marshalErr := json.Marshal(&model.LatencyPacket{
 			ID:      session.ID,
 			Type:    "s2c",
@@ -186,8 +192,8 @@ func (h *Handler) processPacket(conn net.PacketConn, remoteAddr net.Addr,
 		defer session.StartedMu.Unlock()
 		if !session.Started {
 			session.Started = true
-			timeout, _ := context.WithTimeout(context.Background(), 5*time.Second)
-			go h.sendLoop(timeout, conn, remoteAddr, session)
+			go h.sendLoop(context.Background(), conn, remoteAddr, session,
+				sendDuration)
 		}
 	}
 
