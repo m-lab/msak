@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/charmbracelet/log"
@@ -23,8 +24,9 @@ var errorUnauthorized = errors.New("unauthorized")
 
 // Handler is the handler for latency tests.
 type Handler struct {
-	dataDir  string
-	sessions *ttlcache.Cache[string, *model.Session]
+	dataDir    string
+	sessions   *ttlcache.Cache[string, *model.Session]
+	sessionsMu *sync.Mutex
 }
 
 // NewHandler returns a new handler for the UDP latency test.
@@ -53,8 +55,9 @@ func NewHandler(dir string, cacheTTL time.Duration) *Handler {
 
 	go cache.Start()
 	return &Handler{
-		dataDir:  dir,
-		sessions: cache,
+		dataDir:    dir,
+		sessions:   cache,
+		sessionsMu: &sync.Mutex{},
 	}
 }
 
@@ -72,7 +75,9 @@ func (h *Handler) Authorize(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	h.sessionsMu.Lock()
 	h.sessions.Set(mid, model.NewSession(mid), ttlcache.DefaultTTL)
+	h.sessionsMu.Unlock()
 
 	log.Debug("session created", "id", mid)
 
@@ -111,8 +116,10 @@ func (h *Handler) Result(rw http.ResponseWriter, req *http.Request) {
 		rw.Header().Set("Connection", "Close")
 		return
 	}
-	// TODO: mfence?
+
+	h.sessionsMu.Lock()
 	cachedResult := h.sessions.Get(mid)
+	h.sessionsMu.Unlock()
 	if cachedResult == nil {
 		rw.WriteHeader(http.StatusNotFound)
 		return
@@ -196,7 +203,9 @@ func (h *Handler) processPacket(conn net.PacketConn, remoteAddr net.Addr,
 	}
 
 	// Check if this is a known session.
+	h.sessionsMu.Lock()
 	cachedResult := h.sessions.Get(m.ID)
+	h.sessionsMu.Unlock()
 	if cachedResult == nil {
 		return errorUnauthorized
 	}
