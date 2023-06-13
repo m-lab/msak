@@ -60,6 +60,8 @@ func NewHandler(dir string, cacheTTL time.Duration) *Handler {
 
 // Authorize verifies that the request includes a valid JWT, extracts its jti
 // and adds a new empty session to the sessions cache.
+// It returns a valid kickoff LatencyPacket for this new session in the
+// response body.
 func (h *Handler) Authorize(rw http.ResponseWriter, req *http.Request) {
 	mid, err := handler.GetMIDFromRequest(req)
 	if err != nil {
@@ -73,7 +75,26 @@ func (h *Handler) Authorize(rw http.ResponseWriter, req *http.Request) {
 	h.sessions.Set(mid, model.NewSession(mid), ttlcache.DefaultTTL)
 
 	log.Debug("session created", "id", mid)
-	rw.Write([]byte(mid))
+
+	// Create a valid kickoff packet for this session and send it in the
+	// response body.
+	kickoff := &model.LatencyPacket{
+		Type: "c2s",
+		ID:   mid,
+		Seq:  0,
+	}
+
+	b, err := json.Marshal(kickoff)
+	// This should never happen.
+	rtx.Must(err, "cannot marshal LatencyPacket")
+
+	_, err = rw.Write(b)
+	if err != nil {
+		rw.WriteHeader(http.StatusInternalServerError)
+		rw.Header().Set("Connection", "Close")
+		return
+	}
+
 }
 
 // Result returns a result for a given measurement id. Possible status codes
@@ -130,14 +151,12 @@ func (h *Handler) sendLoop(ctx context.Context, conn net.PacketConn,
 
 		// Call time.Now() just before writing to the socket. The RTT will
 		// include the ping packet's write time. This is intentional.
-		session.SendTimesMu.Lock()
-		defer session.SendTimesMu.Unlock()
-		session.SendTimes[seq] = time.Now()
+		sendTime := time.Now()
 		// As the kernel's socket buffers are usually much larger than the
 		// packets we send here, calling conn.WriteTo is expected to take a
 		// negligible time.
 		n, writeErr := conn.WriteTo(b, remoteAddr)
-		if err != nil {
+		if writeErr != nil {
 			err = writeErr
 			cancel()
 			return
@@ -147,6 +166,12 @@ func (h *Handler) sendLoop(ctx context.Context, conn net.PacketConn,
 			cancel()
 			return
 		}
+
+		// Update the SendTimes map after a successful write.
+		session.SendTimesMu.Lock()
+		session.SendTimes[seq] = sendTime
+		session.SendTimesMu.Unlock()
+
 		session.PacketsSent.Add(1)
 		seq++
 
