@@ -218,11 +218,14 @@ func (h *Handler) processPacket(conn net.PacketConn, remoteAddr net.Addr,
 		defer session.SendTimesMu.Unlock()
 		if sendTime, ok := session.SendTimes[m.Seq]; ok {
 			rtt := recvTime.Sub(sendTime).Microseconds()
+			session.Results = append(session.Results, model.SeqRTT{
+				Seq: m.Seq,
+				RTT: int(rtt),
+			})
 			session.LastRTT.Store(rtt)
-			session.RTTs[m.Seq] = int(rtt)
 			log.Debug("updating lastrtt", "seq", m.Seq, "rtt", session.LastRTT)
 		}
-		// TODO: prometheus metric?
+		// TODO: prometheus metric
 		return nil
 	}
 

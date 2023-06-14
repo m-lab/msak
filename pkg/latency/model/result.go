@@ -40,10 +40,15 @@ type ArchivalData struct {
 	// message in the protocol, this is set when the session expires.
 	EndTime time.Time
 
-	RTTs map[int]int
+	Results []SeqRTT
 
 	PacketsSent     int
 	PacketsReceived int
+}
+
+type SeqRTT struct {
+	Seq int
+	RTT int
 }
 
 // Session is the in-memory structure holding information about a UDP latency
@@ -59,8 +64,7 @@ type Session struct {
 	SendTimes   map[int]time.Time
 	SendTimesMu *sync.Mutex
 
-	RTTs    map[int]int
-	RTTsMu  *sync.Mutex
+	Results []SeqRTT
 	LastRTT *atomic.Int64
 }
 
@@ -68,7 +72,7 @@ type Session struct {
 type Summary struct {
 	ID              string
 	StartTime       time.Time
-	RTTs            map[int]int
+	Results         []SeqRTT
 	PacketsSent     int
 	PacketsReceived int
 }
@@ -82,8 +86,7 @@ func NewSession(id string) *Session {
 		Started:   false,
 		StartedMu: &sync.Mutex{},
 
-		RTTs:   make(map[int]int),
-		RTTsMu: &sync.Mutex{},
+		Results: make([]SeqRTT, 0),
 
 		LastRTT: &atomic.Int64{},
 
@@ -99,9 +102,9 @@ func (s *Session) Archive() *ArchivalData {
 		GitShortCommit:  prometheusx.GitShortCommit,
 		Version:         "",
 		StartTime:       s.StartTime,
-		RTTs:            s.RTTs,
+		Results:         s.Results,
 		PacketsSent:     len(s.SendTimes),
-		PacketsReceived: len(s.RTTs),
+		PacketsReceived: len(s.Results),
 	}
 }
 
@@ -111,7 +114,7 @@ func (s *Session) Summarize() *Summary {
 		ID:              s.ID,
 		StartTime:       s.StartTime,
 		PacketsSent:     len(s.SendTimes),
-		PacketsReceived: len(s.RTTs),
-		RTTs:            s.RTTs,
+		PacketsReceived: len(s.Results),
+		Results:         s.Results,
 	}
 }
