@@ -40,9 +40,7 @@ type ArchivalData struct {
 	// message in the protocol, this is set when the session expires.
 	EndTime time.Time
 
-	// Packets is a list of every measurement received or sent as part of
-	// this latency measurement.
-	Packets []LatencyPacket
+	RTTs map[int]int
 
 	PacketsSent     int
 	PacketsReceived int
@@ -54,24 +52,23 @@ type Session struct {
 	ID        string
 	StartTime time.Time
 	EndTime   time.Time
-	Packets   []LatencyPacket
-
-	LastRTT         *atomic.Int64
-	PacketsSent     *atomic.Int64
-	PacketsReceived *atomic.Int64
 
 	Started   bool
 	StartedMu *sync.Mutex
 
 	SendTimes   map[int]time.Time
 	SendTimesMu *sync.Mutex
+
+	RTTs    map[int]int
+	RTTsMu  *sync.Mutex
+	LastRTT *atomic.Int64
 }
 
 // Summary is the measurement's summary.
 type Summary struct {
 	ID              string
 	StartTime       time.Time
-	LastRTT         int
+	RTTs            map[int]int
 	PacketsSent     int
 	PacketsReceived int
 }
@@ -79,16 +76,19 @@ type Summary struct {
 // NewSession returns an empty Session with all the fields initialized.
 func NewSession(id string) *Session {
 	return &Session{
-		ID:              id,
-		Packets:         make([]LatencyPacket, 0),
-		StartTime:       time.Now(),
-		Started:         false,
-		StartedMu:       &sync.Mutex{},
-		LastRTT:         &atomic.Int64{},
-		PacketsSent:     &atomic.Int64{},
-		PacketsReceived: &atomic.Int64{},
-		SendTimes:       make(map[int]time.Time),
-		SendTimesMu:     &sync.Mutex{},
+		ID:        id,
+		StartTime: time.Now(),
+
+		Started:   false,
+		StartedMu: &sync.Mutex{},
+
+		RTTs:   make(map[int]int),
+		RTTsMu: &sync.Mutex{},
+
+		LastRTT: &atomic.Int64{},
+
+		SendTimes:   make(map[int]time.Time),
+		SendTimesMu: &sync.Mutex{},
 	}
 }
 
@@ -99,18 +99,19 @@ func (s *Session) Archive() *ArchivalData {
 		GitShortCommit:  prometheusx.GitShortCommit,
 		Version:         "",
 		StartTime:       s.StartTime,
-		Packets:         s.Packets,
-		PacketsSent:     int(s.PacketsSent.Load()),
-		PacketsReceived: int(s.PacketsReceived.Load()),
+		RTTs:            s.RTTs,
+		PacketsSent:     len(s.SendTimes),
+		PacketsReceived: len(s.RTTs),
 	}
 }
 
+// Summarize converts this Session to a Summary.
 func (s *Session) Summarize() *Summary {
 	return &Summary{
 		ID:              s.ID,
 		StartTime:       s.StartTime,
-		PacketsSent:     int(s.PacketsSent.Load()),
-		PacketsReceived: int(s.PacketsReceived.Load()),
-		LastRTT:         int(s.LastRTT.Load()),
+		PacketsSent:     len(s.SendTimes),
+		PacketsReceived: len(s.RTTs),
+		RTTs:            s.RTTs,
 	}
 }

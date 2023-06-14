@@ -179,7 +179,6 @@ func (h *Handler) sendLoop(ctx context.Context, conn net.PacketConn,
 		session.SendTimes[seq] = sendTime
 		session.SendTimesMu.Unlock()
 
-		session.PacketsSent.Add(1)
 		seq++
 
 		log.Debug("packet sent", "len", n, "id", session.ID, "seq", seq)
@@ -218,13 +217,12 @@ func (h *Handler) processPacket(conn net.PacketConn, remoteAddr net.Addr,
 		session.SendTimesMu.Lock()
 		defer session.SendTimesMu.Unlock()
 		if sendTime, ok := session.SendTimes[m.Seq]; ok {
-			session.LastRTT.Store(int64(recvTime.Sub(sendTime).Microseconds()))
+			rtt := recvTime.Sub(sendTime).Microseconds()
+			session.LastRTT.Store(rtt)
+			session.RTTs[m.Seq] = int(rtt)
 			log.Debug("updating lastrtt", "seq", m.Seq, "rtt", session.LastRTT)
 		}
 		// TODO: prometheus metric?
-		session.PacketsReceived.Add(1)
-		session.Packets = append(
-			session.Packets, m)
 		return nil
 	}
 
