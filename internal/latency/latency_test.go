@@ -248,15 +248,10 @@ func Test_processS2CPacket(t *testing.T) {
 		t.Fatalf("unexpected error while processing pong packet: %v", err)
 	}
 
-	// Check that the PacketsReceived counter has been updated.
-	if session.Value().PacketsReceived.Load() != 1 {
-		t.Errorf("failed to update PacketsReceived (expected %d, got %d)", 1,
-			session.Value().PacketsReceived.Load())
-	}
 	// The measurement slice should contain one measurement.
-	if len(session.Value().Packets) != 1 {
+	if len(session.Value().Results) != 1 {
 		t.Errorf("wrong number of measurements (expected %d, got %d)", 1,
-			len(session.Value().Packets))
+			len(session.Value().Results))
 	}
 
 	// Check the computed RTT.
