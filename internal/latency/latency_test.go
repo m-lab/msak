@@ -242,6 +242,7 @@ func Test_processS2CPacket(t *testing.T) {
 
 	// Set sendTime for Seq=0 to pingTime.
 	session.Value().SendTimes[0] = pingTime
+	session.Value().Results = append(session.Value().Results, model.RTT{})
 	payload := []byte(`{"Type":"s2c","ID":"test","Seq":0}`)
 	err = h.processPacket(serverConn, clientConn.RemoteAddr(), payload, pongTime)
 	if err != nil {
@@ -259,6 +260,13 @@ func Test_processS2CPacket(t *testing.T) {
 	expected := pongTime.Sub(pingTime).Microseconds()
 	if session.Value().LastRTT.Load() != pongTime.Sub(pingTime).Microseconds() {
 		t.Errorf("wrong computed RTT (expected %d, got %d)", expected, rtt)
+	}
+
+	// Send a packet with an invalid Seq.
+	payload = []byte(`{"Type":"s2c","ID":"test","Seq":1000}`)
+	err = h.processPacket(serverConn, clientConn.RemoteAddr(), payload, pongTime)
+	if err != errorInvalidSeqN {
+		t.Errorf("wrong error returned: %v", err)
 	}
 
 }

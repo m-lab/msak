@@ -238,18 +238,13 @@ func (h *Handler) processPacket(conn net.PacketConn, remoteAddr net.Addr,
 		if sendTime, ok := session.SendTimes[m.Seq]; ok {
 			rtt := recvTime.Sub(sendTime).Microseconds()
 			session.LastRTT.Store(rtt)
-
-			// The sequence number cannot be higher than the highest sequence
-			// number we have sent so far.
-			if m.Seq >= len(session.Results) {
-				return errorInvalidSeqN
-			}
-
 			session.Results[m.Seq].RTT = int(rtt)
 			session.Results[m.Seq].Lost = false
 
 			log.Debug("received pong, updating result", "mid", session.ID,
 				"result", session.Results[m.Seq])
+		} else {
+			return errorInvalidSeqN
 		}
 		// TODO: prometheus metric
 		return nil
