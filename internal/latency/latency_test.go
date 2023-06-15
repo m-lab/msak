@@ -262,7 +262,7 @@ func Test_processS2CPacket(t *testing.T) {
 		t.Errorf("wrong computed RTT (expected %d, got %d)", expected, rtt)
 	}
 
-	// Send a packet with an invalid Seq.
+	// Process a pong packet with an unknown sequence number.
 	payload = []byte(`{"Type":"s2c","ID":"test","Seq":1000}`)
 	err = h.processPacket(serverConn, clientConn.RemoteAddr(), payload, pongTime)
 	if err != errorInvalidSeqN {

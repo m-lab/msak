@@ -45,43 +45,68 @@ type ArchivalData struct {
 	// message in the protocol, this is set when the session expires.
 	EndTime time.Time
 
+	// Results is a list of RTT results.
 	Results []RTT
 
-	PacketsSent     int
+	// PacketSent is the number of packets sent during this measurement.
+	PacketsSent int
+	// PacketsReceived is the number of packets received during this
+	// measurement.
 	PacketsReceived int
 }
 
 type RTT struct {
-	RTT  int
+	// RTT is the round-trip time (microseconds).
+	RTT int
+	// Lost says if the packet was lost.
 	Lost bool `json:",omitempty"`
 }
 
 // Session is the in-memory structure holding information about a UDP latency
 // measurement session.
 type Session struct {
-	ID        string
+	// ID is the unique identifier for this latency measurement.
+	ID string
+	// StartTime is the test's start time.
 	StartTime time.Time
-	EndTime   time.Time
+	// EndTime is the test's end time.
+	EndTime time.Time
 
+	// Client is the client's ip:port pair.
 	Client string
+	// Server is the server's ip:port pair.
 	Server string
 
-	Started   bool
+	// Started is true if this session's send loop has been started already.
+	Started bool
+	// StartedMu is the mutex associated to Started.
 	StartedMu *sync.Mutex
 
-	SendTimes   map[int]time.Time
+	// SendTimes is a map of Sequence number -> send time.
+	SendTimes map[int]time.Time
+	// SendTimesMu is the mutex associated to SendTimes.
 	SendTimesMu *sync.Mutex
 
+	// Results is a list of RTT results.
 	Results []RTT
+
+	// LastRTT contains the last observed RTT.
 	LastRTT *atomic.Int64
 }
 
 // Summary is the measurement's summary.
 type Summary struct {
-	ID              string
-	StartTime       time.Time
-	Results         []RTT
-	PacketsSent     int
+	// ID is the unique identifier for this latency measurement.
+	ID string
+	// StartTime is the test's start time.
+	StartTime time.Time
+	// Results is a list of RTT results.
+	Results []RTT
+
+	// PacketSent is the number of packets sent during this measurement.
+	PacketsSent int
+	// PacketsReceived is the number of packets received during this
+	// measurement.
 	PacketsReceived int
 }
 
