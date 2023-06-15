@@ -241,7 +241,8 @@ func Test_processS2CPacket(t *testing.T) {
 		ttlcache.DefaultTTL)
 
 	// Set sendTime for Seq=0 to pingTime.
-	session.Value().SendTimes[0] = pingTime
+	sendTimes := session.Value().SendTimes
+	session.Value().SendTimes = append(sendTimes, pingTime)
 	session.Value().Results = append(session.Value().Results, model.RTT{})
 	payload := []byte(`{"Type":"s2c","ID":"test","Seq":0}`)
 	err = h.processPacket(serverConn, clientConn.RemoteAddr(), payload, pongTime)
@@ -268,5 +269,4 @@ func Test_processS2CPacket(t *testing.T) {
 	if err != errorInvalidSeqN {
 		t.Errorf("wrong error returned: %v", err)
 	}
-
 }

@@ -189,7 +189,7 @@ func (h *Handler) sendLoop(ctx context.Context, conn net.PacketConn,
 
 		// Update the SendTimes map after a successful write.
 		session.SendTimesMu.Lock()
-		session.SendTimes[seq] = sendTime
+		session.SendTimes = append(session.SendTimes, sendTime)
 		session.SendTimesMu.Unlock()
 
 		// Add this packet to the Results slice. Results are "lost" until a
@@ -235,17 +235,17 @@ func (h *Handler) processPacket(conn net.PacketConn, remoteAddr net.Addr,
 	if m.Type == "s2c" {
 		session.SendTimesMu.Lock()
 		defer session.SendTimesMu.Unlock()
-		if sendTime, ok := session.SendTimes[m.Seq]; ok {
-			rtt := recvTime.Sub(sendTime).Microseconds()
-			session.LastRTT.Store(rtt)
-			session.Results[m.Seq].RTT = int(rtt)
-			session.Results[m.Seq].Lost = false
-
-			log.Debug("received pong, updating result", "mid", session.ID,
-				"result", session.Results[m.Seq])
-		} else {
+		if m.Seq >= len(session.SendTimes) {
 			return errorInvalidSeqN
 		}
+
+		rtt := recvTime.Sub(session.SendTimes[m.Seq]).Microseconds()
+		session.LastRTT.Store(rtt)
+		session.Results[m.Seq].RTT = int(rtt)
+		session.Results[m.Seq].Lost = false
+
+		log.Debug("received pong, updating result", "mid", session.ID,
+			"result", session.Results[m.Seq])
 		// TODO: prometheus metric
 		return nil
 	}

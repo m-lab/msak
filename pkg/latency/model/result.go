@@ -82,9 +82,10 @@ type Session struct {
 	// StartedMu is the mutex associated to Started.
 	StartedMu *sync.Mutex
 
-	// SendTimes is a map of Sequence number -> send time.
-	SendTimes map[int]time.Time
-	// SendTimesMu is the mutex associated to SendTimes.
+	// SendTimes is a slice of send times. The slice's index is the packet's
+	// sequence number.
+	SendTimes []time.Time
+	// SendTimesMu is a mutex to synchronize access to SendTimes.
 	SendTimesMu *sync.Mutex
 
 	// Results is a list of RTT results.
@@ -123,7 +124,7 @@ func NewSession(id string) *Session {
 
 		LastRTT: &atomic.Int64{},
 
-		SendTimes:   make(map[int]time.Time),
+		SendTimes:   []time.Time{},
 		SendTimesMu: &sync.Mutex{},
 	}
 }
