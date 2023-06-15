@@ -37,8 +37,15 @@ func WriteDataFile(prefix, datatype, subtest, uuid string,
 	if err != nil {
 		return nil, err
 	}
-	filepath := path.Join(dir, datatype+"-"+subtest+"-"+
-		timestamp.Format("20060102T150405.000000000Z")+"."+uuid+".json")
+	var filename string
+	if subtest != "" {
+		filename = datatype + "-" + subtest + "-" +
+			timestamp.Format("20060102T150405.000000000Z") + "." + uuid + ".json"
+	} else {
+		filename = datatype + "-" +
+			timestamp.Format("20060102T150405.000000000Z") + "." + uuid + ".json"
+	}
+	filepath := path.Join(dir, filename)
 	fp, err := os.OpenFile(filepath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
 	if err != nil {
 		return nil, err

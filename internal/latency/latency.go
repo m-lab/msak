@@ -20,7 +20,10 @@ import (
 
 const sendDuration = 5 * time.Second
 
-var errorUnauthorized = errors.New("unauthorized")
+var (
+	errorUnauthorized = errors.New("unauthorized")
+	errorInvalidSeqN  = errors.New("invalid sequence number")
+)
 
 // Handler is the handler for latency tests.
 type Handler struct {
@@ -75,8 +78,10 @@ func (h *Handler) Authorize(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	// Create a new session for this mid.
+	session := model.NewSession(mid)
 	h.sessionsMu.Lock()
-	h.sessions.Set(mid, model.NewSession(mid), ttlcache.DefaultTTL)
+	h.sessions.Set(mid, session, ttlcache.DefaultTTL)
 	h.sessionsMu.Unlock()
 
 	log.Debug("session created", "id", mid)
@@ -179,6 +184,12 @@ func (h *Handler) sendLoop(ctx context.Context, conn net.PacketConn,
 		session.SendTimes[seq] = sendTime
 		session.SendTimesMu.Unlock()
 
+		// Add this packet to the Results slice. Results are "lost" until a
+		// reply is received from the server.
+		session.Results = append(session.Results, model.RTT{
+			Lost: true,
+		})
+
 		seq++
 
 		log.Debug("packet sent", "len", n, "id", session.ID, "seq", seq)
@@ -218,23 +229,33 @@ func (h *Handler) processPacket(conn net.PacketConn, remoteAddr net.Addr,
 		defer session.SendTimesMu.Unlock()
 		if sendTime, ok := session.SendTimes[m.Seq]; ok {
 			rtt := recvTime.Sub(sendTime).Microseconds()
-			session.Results = append(session.Results, model.SeqRTT{
-				Seq: m.Seq,
-				RTT: int(rtt),
-			})
 			session.LastRTT.Store(rtt)
-			log.Debug("updating lastrtt", "seq", m.Seq, "rtt", session.LastRTT)
+
+			// The sequence number cannot be higher than the highest sequence
+			// number we have sent so far.
+			if m.Seq >= len(session.Results) {
+				return errorInvalidSeqN
+			}
+
+			session.Results[m.Seq].RTT = int(rtt)
+			session.Results[m.Seq].Lost = false
+
+			log.Debug("received pong, updating result", "mid", session.ID,
+				"result", session.Results[m.Seq])
 		}
 		// TODO: prometheus metric
 		return nil
 	}
 
-	// If this message's type is c2s, trigger the send loop.
+	// If this message's type is c2s, it's a kickoff packet. Record
+	// local/remote addresses and trigger the send loop.
 	if m.Type == "c2s" {
 		session.StartedMu.Lock()
 		defer session.StartedMu.Unlock()
 		if !session.Started {
 			session.Started = true
+			session.Client = remoteAddr.String()
+			session.Server = conn.LocalAddr().String()
 			go h.sendLoop(context.Background(), conn, remoteAddr, session,
 				sendDuration)
 		}

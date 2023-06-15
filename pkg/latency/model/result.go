@@ -33,6 +33,11 @@ type ArchivalData struct {
 	// ID is the unique identifier for this latency measurement.
 	ID string
 
+	// Client is the client's ip:port pair.
+	Client string
+	// Server is the server's ip:port pair.
+	Server string
+
 	// StartTime is the test's start time.
 	StartTime time.Time
 
@@ -40,15 +45,15 @@ type ArchivalData struct {
 	// message in the protocol, this is set when the session expires.
 	EndTime time.Time
 
-	Results []SeqRTT
+	Results []RTT
 
 	PacketsSent     int
 	PacketsReceived int
 }
 
-type SeqRTT struct {
-	Seq int
-	RTT int
+type RTT struct {
+	RTT  int
+	Lost bool `json:",omitempty"`
 }
 
 // Session is the in-memory structure holding information about a UDP latency
@@ -58,13 +63,16 @@ type Session struct {
 	StartTime time.Time
 	EndTime   time.Time
 
+	Client string
+	Server string
+
 	Started   bool
 	StartedMu *sync.Mutex
 
 	SendTimes   map[int]time.Time
 	SendTimesMu *sync.Mutex
 
-	Results []SeqRTT
+	Results []RTT
 	LastRTT *atomic.Int64
 }
 
@@ -72,7 +80,7 @@ type Session struct {
 type Summary struct {
 	ID              string
 	StartTime       time.Time
-	Results         []SeqRTT
+	Results         []RTT
 	PacketsSent     int
 	PacketsReceived int
 }
@@ -86,7 +94,7 @@ func NewSession(id string) *Session {
 		Started:   false,
 		StartedMu: &sync.Mutex{},
 
-		Results: make([]SeqRTT, 0),
+		Results: make([]RTT, 0),
 
 		LastRTT: &atomic.Int64{},
 
@@ -101,6 +109,8 @@ func (s *Session) Archive() *ArchivalData {
 		ID:              s.ID,
 		GitShortCommit:  prometheusx.GitShortCommit,
 		Version:         "",
+		Client:          s.Client,
+		Server:          s.Server,
 		StartTime:       s.StartTime,
 		Results:         s.Results,
 		PacketsSent:     len(s.SendTimes),
