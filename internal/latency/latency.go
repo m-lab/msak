@@ -136,7 +136,15 @@ func (h *Handler) Result(rw http.ResponseWriter, req *http.Request) {
 		rw.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	rw.Write(b)
+
+	_, err = rw.Write(b)
+	if err != nil {
+		rw.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	// Remove this session from the cache.
+	h.sessions.Delete(mid)
 }
 
 // sendLoop sends UDP pings with progressive sequence numbers until the context
