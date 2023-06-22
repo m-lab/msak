@@ -292,7 +292,9 @@ func (h *Handler) ProcessPacketLoop(conn net.PacketConn) {
 		log.Debug("received UDP packet", "addr", addr, "n", n, "data", string(buf[:n]))
 		err = h.processPacket(conn, addr, buf[:n], recvTime)
 		if err != nil {
-			log.Debug("failed to process packet", "err", err)
+			log.Debug("failed to process packet",
+				"err", err,
+				"src", addr.String())
 		}
 	}
 }
