@@ -134,7 +134,7 @@ func (s *Session) Archive() *ArchivalData {
 	return &ArchivalData{
 		ID:              s.ID,
 		GitShortCommit:  prometheusx.GitShortCommit,
-		Version:         "",
+		Version:         "TODO",
 		Client:          s.Client,
 		Server:          s.Server,
 		StartTime:       s.StartTime,
