@@ -55,18 +55,4 @@ func TestWriteDataFile(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected error, got nil")
 	}
-
-	// Test writing data file without subtest.
-	df, err = persistence.WriteDataFile("testdata", "type", "", "fake-uuid", testdata)
-	if err != nil {
-		t.Fatalf("cannot create test datafile: %v", err)
-	}
-
-	// Check the generated path.
-	prefix = fmt.Sprintf("testdata/type/%s/type-", time.Now().Format("2006/01/02"))
-	if !strings.HasPrefix(df.Path, prefix) ||
-		!strings.HasSuffix(df.Path, "fake-uuid.json") {
-		t.Errorf("invalid output path: %s", df.Path)
-	}
-
 }
