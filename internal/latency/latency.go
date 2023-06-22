@@ -286,10 +286,10 @@ func (h *Handler) ProcessPacketLoop(conn net.PacketConn) {
 			log.Error("error while reading UDP packet", "err", err)
 			continue
 		}
-		log.Debug("received UDP packet", "addr", addr, "n", n, "data", string(buf[:n]))
 		// The receive time should be recorded as soon as possible after
 		// reading the packet, to improve accuracy.
 		recvTime := time.Now()
+		log.Debug("received UDP packet", "addr", addr, "n", n, "data", string(buf[:n]))
 		err = h.processPacket(conn, addr, buf[:n], recvTime)
 		if err != nil {
 			log.Debug("failed to process packet", "err", err)
