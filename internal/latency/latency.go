@@ -29,7 +29,7 @@ var (
 type Handler struct {
 	dataDir    string
 	sessions   *ttlcache.Cache[string, *model.Session]
-	sessionsMu *sync.Mutex
+	sessionsMu sync.Mutex
 }
 
 // NewHandler returns a new handler for the UDP latency test.
@@ -58,9 +58,8 @@ func NewHandler(dir string, cacheTTL time.Duration) *Handler {
 
 	go cache.Start()
 	return &Handler{
-		dataDir:    dir,
-		sessions:   cache,
-		sessionsMu: &sync.Mutex{},
+		dataDir:  dir,
+		sessions: cache,
 	}
 }
 
@@ -100,6 +99,7 @@ func (h *Handler) Authorize(rw http.ResponseWriter, req *http.Request) {
 
 	_, err = rw.Write(b)
 	if err != nil {
+		// TODO: add Prometheus metric for write errors.
 		rw.WriteHeader(http.StatusInternalServerError)
 		rw.Header().Set("Connection", "Close")
 		return
@@ -139,6 +139,7 @@ func (h *Handler) Result(rw http.ResponseWriter, req *http.Request) {
 
 	_, err = rw.Write(b)
 	if err != nil {
+		// TODO: add Prometheus metric for write errors.
 		rw.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -203,6 +204,8 @@ func (h *Handler) sendLoop(ctx context.Context, conn net.PacketConn,
 		log.Debug("packet sent", "len", n, "id", session.ID, "seq", seq)
 
 	}, memoryless.Config{
+		// Using randomized intervals allows to detect cyclic network
+		// behaviors where a fixed interval could align to the cycle.
 		Expected: 25 * time.Millisecond,
 		Min:      10 * time.Millisecond,
 		Max:      40 * time.Millisecond,
