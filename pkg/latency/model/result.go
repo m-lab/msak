@@ -95,6 +95,17 @@ type Session struct {
 	LastRTT *atomic.Int64
 }
 
+// PacketsReceived returns the number of received packets for this session.
+func (s *Session) PacketsReceived() int {
+	recv := 0
+	for _, v := range s.Results {
+		if !v.Lost {
+			recv++
+		}
+	}
+	return recv
+}
+
 // Summary is the measurement's summary.
 type Summary struct {
 	// ID is the unique identifier for this latency measurement.
@@ -140,7 +151,7 @@ func (s *Session) Archive() *ArchivalData {
 		StartTime:       s.StartTime,
 		Results:         s.Results,
 		PacketsSent:     len(s.SendTimes),
-		PacketsReceived: len(s.Results),
+		PacketsReceived: s.PacketsReceived(),
 	}
 }
 
@@ -150,7 +161,7 @@ func (s *Session) Summarize() *Summary {
 		ID:              s.ID,
 		StartTime:       s.StartTime,
 		PacketsSent:     len(s.SendTimes),
-		PacketsReceived: len(s.Results),
+		PacketsReceived: s.PacketsReceived(),
 		Results:         s.Results,
 	}
 }

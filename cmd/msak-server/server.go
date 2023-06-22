@@ -15,6 +15,7 @@ import (
 	"github.com/m-lab/go/prometheusx"
 	"github.com/m-lab/go/rtx"
 	"github.com/m-lab/msak/internal/handler"
+	"github.com/m-lab/msak/internal/latency"
 	"github.com/m-lab/msak/internal/netx"
 	"github.com/m-lab/msak/pkg/ndt8/spec"
 )
@@ -25,6 +26,8 @@ var (
 	flagEndpoint          = flag.String("wss_addr", ":4443", "Listen address/port for TLS connections")
 	flagEndpointCleartext = flag.String("ws_addr", ":8080", "Listen address/port for cleartext connections")
 	flagDataDir           = flag.String("datadir", "./data", "Directory to store data in")
+	flagLatencyEndpoint   = flag.String("latency_addr", ":1053", "Listen address/port for UDP latency tests")
+	flagLatencyTTL        = flag.Duration("latency_ttl", 1*time.Minute, "Session cache's TTL")
 	tokenVerifyKey        = flagx.FileBytesArray{}
 	tokenVerify           bool
 	tokenMachine          string
@@ -76,16 +79,20 @@ func main() {
 		spec.UploadPath:   true,
 	}
 	ndt8TokenPaths := controller.Paths{
-		spec.DownloadPath: true,
-		spec.UploadPath:   true,
+		spec.DownloadPath:       true,
+		spec.UploadPath:         true,
+		"/latency/v1/authorize": true,
 	}
 	acm, _ := controller.Setup(ctx, v, tokenVerify, tokenMachine,
 		ndt8TxPaths, ndt8TokenPaths)
 
 	ndt8Mux := http.NewServeMux()
 	ndt8Handler := handler.New(*flagDataDir)
+	latencyHandler := latency.NewHandler(*flagDataDir, *flagLatencyTTL)
 	ndt8Mux.Handle(spec.DownloadPath, http.HandlerFunc(ndt8Handler.Download))
 	ndt8Mux.Handle(spec.UploadPath, http.HandlerFunc(ndt8Handler.Upload))
+	ndt8Mux.Handle("/latency/v1/authorize", http.HandlerFunc(latencyHandler.Authorize))
+	ndt8Mux.Handle("/latency/v1/result", http.HandlerFunc(latencyHandler.Result))
 	ndt8ServerCleartext := httpServer(
 		*flagEndpointCleartext,
 		acm.Then(ndt8Mux))
@@ -121,6 +128,14 @@ func main() {
 			defer ndt8Server.Close()
 		}()
 	}
+
+	// Start a UDP server for latency measurements.
+	addr, _ := net.ResolveUDPAddr("udp", *flagLatencyEndpoint)
+	udpServer, err := net.ListenUDP("udp", addr)
+	rtx.Must(err, "cannot start latency UDP server")
+	defer udpServer.Close()
+
+	go latencyHandler.ProcessPacketLoop(udpServer)
 
 	<-ctx.Done()
 	cancel()
