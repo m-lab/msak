@@ -239,6 +239,11 @@ func (h *Handler) processPacket(conn net.PacketConn, remoteAddr net.Addr,
 		session.SendTimesMu.Lock()
 		defer session.SendTimesMu.Unlock()
 		if m.Seq >= len(session.SendTimes) {
+			// TODO: Add Prometheus metric.
+			log.Info("received packet with valid mid and invalid seq number",
+				"mid", m.ID,
+				"seq", m.Seq,
+				"addr", remoteAddr.String())
 			return errorInvalidSeqN
 		}
 
