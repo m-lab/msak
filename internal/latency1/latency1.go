@@ -100,8 +100,6 @@ func (h *Handler) Authorize(rw http.ResponseWriter, req *http.Request) {
 	_, err = rw.Write(b)
 	if err != nil {
 		// TODO: add Prometheus metric for write errors.
-		rw.WriteHeader(http.StatusInternalServerError)
-		rw.Header().Set("Connection", "Close")
 		return
 	}
 
@@ -140,7 +138,6 @@ func (h *Handler) Result(rw http.ResponseWriter, req *http.Request) {
 	_, err = rw.Write(b)
 	if err != nil {
 		// TODO: add Prometheus metric for write errors.
-		rw.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
