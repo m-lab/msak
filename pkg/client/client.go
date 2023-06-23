@@ -16,9 +16,9 @@ import (
 	"github.com/m-lab/locate/api/locate"
 	v2 "github.com/m-lab/locate/api/v2"
 	"github.com/m-lab/msak/internal/netx"
-	"github.com/m-lab/msak/pkg/ndt8"
-	"github.com/m-lab/msak/pkg/ndt8/model"
-	"github.com/m-lab/msak/pkg/ndt8/spec"
+	"github.com/m-lab/msak/pkg/throughput1"
+	"github.com/m-lab/msak/pkg/throughput1/model"
+	"github.com/m-lab/msak/pkg/throughput1/spec"
 )
 
 const (
@@ -62,7 +62,7 @@ type NDT8Client struct {
 	MeasurementID     string
 
 	OutputPath    string
-	ResultsByUUID map[string]*model.NDT8Result
+	ResultsByUUID map[string]*model.Throughput1Result
 
 	// targets and tIndex cache the results from the Locate API.
 	targets []v2.Target
@@ -88,7 +88,7 @@ func New(clientName, clientVersion string) *NDT8Client {
 				return netx.FromTCPConn(conn.(*net.TCPConn))
 			},
 		},
-		ResultsByUUID: make(map[string]*model.NDT8Result),
+		ResultsByUUID: make(map[string]*model.Throughput1Result),
 		Scheme:        "wss",
 		Locate: locate.NewClient(
 			makeUserAgent(clientName, clientVersion),
@@ -123,7 +123,7 @@ func (c *NDT8Client) connect(ctx context.Context, serviceURL *url.URL) (*websock
 // If there are no more URLs to try, it returns an error.
 func (c *NDT8Client) nextURLFromLocate(ctx context.Context, p string) (string, error) {
 	if len(c.targets) == 0 {
-		targets, err := c.Locate.Nearest(ctx, "msak/ndt8")
+		targets, err := c.Locate.Nearest(ctx, "msak/throughput1")
 		if err != nil {
 			return "", err
 		}
@@ -185,12 +185,11 @@ func (c *NDT8Client) start(ctx context.Context, subtest spec.SubtestKind) error 
 	defer cancel()
 
 	globalStartTime := time.Now()
-
 	for i := 0; i < c.NumStreams; i++ {
 		streamID := i
 		wg.Add(1)
 		measurements := make(chan model.WireMeasurement)
-		result := &model.NDT8Result{
+		result := &model.Throughput1Result{
 			MeasurementID: c.MeasurementID,
 			Direction:     string(subtest),
 		}
@@ -224,7 +223,7 @@ func (c *NDT8Client) start(ctx context.Context, subtest spec.SubtestKind) error 
 				result.EndTime = time.Now().UTC()
 			}()
 
-			proto := ndt8.New(conn)
+			proto := throughput1.New(conn)
 
 			var senderCh, receiverCh <-chan model.WireMeasurement
 			var errCh <-chan error
