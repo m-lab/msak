@@ -195,7 +195,7 @@ func (h *Handler) sendLoop(ctx context.Context, conn net.PacketConn,
 
 		// Add this packet to the Results slice. Results are "lost" until a
 		// reply is received from the server.
-		session.Packets = append(session.Packets, model.Packet{
+		session.RoundTrips = append(session.RoundTrips, model.RoundTrip{
 			Lost: true,
 		})
 
@@ -249,11 +249,11 @@ func (h *Handler) processPacket(conn net.PacketConn, remoteAddr net.Addr,
 
 		rtt := recvTime.Sub(session.SendTimes[m.Seq]).Microseconds()
 		session.LastRTT.Store(rtt)
-		session.Packets[m.Seq].RTT = int(rtt)
-		session.Packets[m.Seq].Lost = false
+		session.RoundTrips[m.Seq].RTT = int(rtt)
+		session.RoundTrips[m.Seq].Lost = false
 
 		log.Debug("received pong, updating result", "mid", session.ID,
-			"result", session.Packets[m.Seq])
+			"result", session.RoundTrips[m.Seq])
 		// TODO: prometheus metric
 		return nil
 	}

@@ -243,7 +243,7 @@ func Test_processS2CPacket(t *testing.T) {
 	// Set sendTime for Seq=0 to pingTime.
 	sendTimes := session.Value().SendTimes
 	session.Value().SendTimes = append(sendTimes, pingTime)
-	session.Value().Packets = append(session.Value().Packets, model.Packet{})
+	session.Value().RoundTrips = append(session.Value().RoundTrips, model.RoundTrip{})
 	payload := []byte(`{"Type":"s2c","ID":"test","Seq":0}`)
 	err = h.processPacket(serverConn, clientConn.RemoteAddr(), payload, pongTime)
 	if err != nil {
@@ -251,9 +251,9 @@ func Test_processS2CPacket(t *testing.T) {
 	}
 
 	// The measurement slice should contain one measurement.
-	if len(session.Value().Packets) != 1 {
+	if len(session.Value().RoundTrips) != 1 {
 		t.Errorf("wrong number of measurements (expected %d, got %d)", 1,
-			len(session.Value().Packets))
+			len(session.Value().RoundTrips))
 	}
 
 	// Check the computed RTT.
