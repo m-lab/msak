@@ -49,7 +49,7 @@ func NewHandler(dir string, cacheTTL time.Duration) *Handler {
 		// Save data to disk when the session expires.
 		archive := i.Value().Archive()
 		archive.EndTime = time.Now()
-		_, err := persistence.WriteDataFile(dir, "latency", "transport", archive.ID, archive)
+		_, err := persistence.WriteDataFile(dir, "latency", "application", archive.ID, archive)
 		if err != nil {
 			log.Error("failed to write latency result", "mid", archive.ID, "error", err)
 			return
