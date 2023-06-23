@@ -248,7 +248,7 @@ func (h *Handler) writeResult(uuid string, kind model.TestDirection, result *mod
 		h.archivalDataDir, "throughput1", string(kind), uuid,
 		result)
 	if err != nil {
-		log.Error("failed to write throughtpu1 result", "uuid", uuid, "error", err)
+		log.Error("failed to write throughput1 result", "uuid", uuid, "error", err)
 		return
 	}
 }
