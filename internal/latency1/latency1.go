@@ -1,4 +1,4 @@
-package latency
+package latency1
 
 import (
 	"context"
@@ -15,7 +15,7 @@ import (
 	"github.com/m-lab/go/rtx"
 	"github.com/m-lab/msak/internal/handler"
 	"github.com/m-lab/msak/internal/persistence"
-	"github.com/m-lab/msak/pkg/latency/model"
+	"github.com/m-lab/msak/pkg/latency1/model"
 )
 
 const sendDuration = 5 * time.Second
@@ -49,7 +49,7 @@ func NewHandler(dir string, cacheTTL time.Duration) *Handler {
 		// Save data to disk when the session expires.
 		archive := i.Value().Archive()
 		archive.EndTime = time.Now()
-		_, err := persistence.WriteDataFile(dir, "latency", "application", archive.ID, archive)
+		_, err := persistence.WriteDataFile(dir, "latency1", "application", archive.ID, archive)
 		if err != nil {
 			log.Error("failed to write latency result", "mid", archive.ID, "error", err)
 			return

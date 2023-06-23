@@ -1,4 +1,4 @@
-package latency
+package latency1
 
 import (
 	"encoding/json"
@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/jellydator/ttlcache/v3"
-	"github.com/m-lab/msak/pkg/latency/model"
+	"github.com/m-lab/msak/pkg/latency1/model"
 )
 
 func TestNewHandler(t *testing.T) {

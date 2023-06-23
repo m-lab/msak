@@ -24,7 +24,7 @@ type LatencyPacket struct {
 	LastRTT int `json:",omitempty"`
 }
 
-// ArchivalData is the archival data format for UDP latency measurements.
+// ArchivalData is the archival data format for latency1 measurements.
 type ArchivalData struct {
 	// GitShortCommit is the Git commit (short form) of the running server code.
 	GitShortCommit string
