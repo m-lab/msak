@@ -28,15 +28,15 @@ const (
 	ScalingFraction = 16
 
 	// DownloadPath selects the download subtest.
-	DownloadPath = "/msak/v1/download"
+	DownloadPath = "/throughput/v1/download"
 	// UploadPath selects the upload subtest.
-	UploadPath = "/mask/v1/upload"
+	UploadPath = "/throughput/v1/upload"
 
 	// MaxRuntime is the maximum runtime of a subtest.
 	MaxRuntime = 15 * time.Second
 
 	// SecWebSocketProtocol is the value of the Sec-WebSocket-Protocol header.
-	SecWebSocketProtocol = "net.measurementlab.msak.v1"
+	SecWebSocketProtocol = "net.measurementlab.throughput.v1"
 )
 
 // SubtestKind indicates the subtest kind
