@@ -15,9 +15,9 @@ import (
 	"github.com/m-lab/go/rtx"
 	"github.com/m-lab/msak/internal/handler"
 	"github.com/m-lab/msak/internal/netx"
-	"github.com/m-lab/msak/pkg/ndt8"
-	"github.com/m-lab/msak/pkg/ndt8/model"
-	"github.com/m-lab/msak/pkg/ndt8/spec"
+	"github.com/m-lab/msak/pkg/throughput1"
+	"github.com/m-lab/msak/pkg/throughput1/model"
+	"github.com/m-lab/msak/pkg/throughput1/spec"
 )
 
 func TestNew(t *testing.T) {
@@ -76,7 +76,7 @@ func TestHandler_Upload(t *testing.T) {
 	if conn == nil {
 		t.Fatalf("websocket dial returned nil")
 	}
-	proto := ndt8.New(conn)
+	proto := throughput1.New(conn)
 	timeout, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 	senderCh, receiverCh, errCh := proto.SenderLoop(timeout)
@@ -123,7 +123,7 @@ func TestHandler_Download(t *testing.T) {
 		t.Fatalf("websocket dial returned nil")
 	}
 
-	proto := ndt8.New(conn)
+	proto := throughput1.New(conn)
 	timeout, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 	senderCh, receiverCh, errCh := proto.ReceiverLoop(timeout)
