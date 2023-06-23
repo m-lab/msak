@@ -45,8 +45,8 @@ type ArchivalData struct {
 	// message in the protocol, this is set when the session expires.
 	EndTime time.Time
 
-	// Results is a list of RTT results.
-	Results []RTT
+	// Packets is a list of packets.
+	Packets []Packet
 
 	// PacketSent is the number of packets sent during this measurement.
 	PacketsSent int
@@ -55,7 +55,9 @@ type ArchivalData struct {
 	PacketsReceived int
 }
 
-type RTT struct {
+// Packet is a latency packet, either received (in which case the RTT field is
+// populated) or lost.
+type Packet struct {
 	// RTT is the round-trip time (microseconds).
 	RTT int
 	// Lost says if the packet was lost.
@@ -88,8 +90,8 @@ type Session struct {
 	// SendTimesMu is a mutex to synchronize access to SendTimes.
 	SendTimesMu *sync.Mutex
 
-	// Results is a list of RTT results.
-	Results []RTT
+	// Results is a list of latency packets.
+	Packets []Packet
 
 	// LastRTT contains the last observed RTT.
 	LastRTT *atomic.Int64
@@ -98,7 +100,7 @@ type Session struct {
 // PacketsReceived returns the number of received packets for this session.
 func (s *Session) PacketsReceived() int {
 	recv := 0
-	for _, v := range s.Results {
+	for _, v := range s.Packets {
 		if !v.Lost {
 			recv++
 		}
@@ -113,7 +115,7 @@ type Summary struct {
 	// StartTime is the test's start time.
 	StartTime time.Time
 	// Results is a list of RTT results.
-	Results []RTT
+	Results []Packet
 
 	// PacketSent is the number of packets sent during this measurement.
 	PacketsSent int
@@ -131,7 +133,7 @@ func NewSession(id string) *Session {
 		Started:   false,
 		StartedMu: &sync.Mutex{},
 
-		Results: make([]RTT, 0),
+		Packets: make([]Packet, 0),
 
 		LastRTT: &atomic.Int64{},
 
@@ -149,7 +151,7 @@ func (s *Session) Archive() *ArchivalData {
 		Client:          s.Client,
 		Server:          s.Server,
 		StartTime:       s.StartTime,
-		Results:         s.Results,
+		Packets:         s.Packets,
 		PacketsSent:     len(s.SendTimes),
 		PacketsReceived: s.PacketsReceived(),
 	}
@@ -162,6 +164,6 @@ func (s *Session) Summarize() *Summary {
 		StartTime:       s.StartTime,
 		PacketsSent:     len(s.SendTimes),
 		PacketsReceived: s.PacketsReceived(),
-		Results:         s.Results,
+		Results:         s.Packets,
 	}
 }
