@@ -1,4 +1,4 @@
-package ndt8_test
+package throughput1_test
 
 import (
 	"bytes"
@@ -14,8 +14,8 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/m-lab/go/rtx"
 	"github.com/m-lab/msak/internal/netx"
-	"github.com/m-lab/msak/pkg/ndt8"
-	"github.com/m-lab/msak/pkg/ndt8/spec"
+	"github.com/m-lab/msak/pkg/throughput1"
+	"github.com/m-lab/msak/pkg/throughput1/spec"
 )
 
 func TestProtocol_Upgrade(t *testing.T) {
@@ -26,7 +26,7 @@ func TestProtocol_Upgrade(t *testing.T) {
 	r.Header.Add("Upgrade", "websocket")
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, err := ndt8.Upgrade(w, r)
+		_, err := throughput1.Upgrade(w, r)
 		if err != nil {
 			return
 		}
@@ -64,9 +64,9 @@ func TestProtocol_Upgrade(t *testing.T) {
 }
 
 func downloadHandler(rw http.ResponseWriter, req *http.Request) {
-	wsConn, err := ndt8.Upgrade(rw, req)
+	wsConn, err := throughput1.Upgrade(rw, req)
 	rtx.Must(err, "failed to upgrade to WS")
-	proto := ndt8.New(wsConn)
+	proto := throughput1.New(wsConn)
 	ctx, cancel := context.WithTimeout(req.Context(), 3*time.Second)
 	defer cancel()
 	tx, rx, errCh := proto.SenderLoop(ctx)
@@ -113,7 +113,7 @@ func TestProtocol_Download(t *testing.T) {
 	conn, _, err := d.Dial(u.String(), headers)
 
 	rtx.Must(err, "cannot dial server")
-	proto := ndt8.New(conn)
+	proto := throughput1.New(conn)
 	senderCh, receiverCh, errCh := proto.ReceiverLoop(context.Background())
 	start := time.Now()
 	for {

@@ -14,13 +14,13 @@ import (
 	"github.com/m-lab/go/prometheusx"
 	"github.com/m-lab/msak/internal/netx"
 	"github.com/m-lab/msak/internal/persistence"
-	"github.com/m-lab/msak/pkg/ndt8"
-	"github.com/m-lab/msak/pkg/ndt8/model"
+	"github.com/m-lab/msak/pkg/throughput1"
+	"github.com/m-lab/msak/pkg/throughput1/model"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
-// knownOptions are the known ndt8 options.
+// knownOptions are the known throughput1 options.
 var knownOptions = map[string]struct{}{
 	"streams":      {},
 	"duration":     {},
@@ -41,7 +41,7 @@ var (
 	ClientConnections = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "msak",
-			Subsystem: "ndt8",
+			Subsystem: "throughput1",
 			Name:      "client_connections_total",
 		},
 		[]string{"direction", "status"},
@@ -142,10 +142,10 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 	}
 
 	// Everything looks good, try upgrading the connection to WebSocket.
-	// Once upgraded, the underlying TCP connection is hijacked and the ndt8
+	// Once upgraded, the underlying TCP connection is hijacked and the throughput1
 	// protocol code will take care of closing it. Note that for this reason
 	// we cannot call writeBadRequest after attempting an Upgrade.
-	wsConn, err := ndt8.Upgrade(rw, req)
+	wsConn, err := throughput1.Upgrade(rw, req)
 	if err != nil {
 		ClientConnections.WithLabelValues(string(kind),
 			"websocket-upgrade-failed").Inc()
@@ -182,7 +182,7 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 		wsConn.Close()
 		return
 	}
-	archivalData := model.NDT8Result{
+	archivalData := model.Throughput1Result{
 		MeasurementID:  mid,
 		UUID:           uuid,
 		StartTime:      time.Now(),
@@ -203,7 +203,7 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 	timeout, cancel := context.WithTimeout(req.Context(), duration)
 	defer cancel()
 
-	proto := ndt8.New(wsConn)
+	proto := throughput1.New(wsConn)
 	var senderCh, receiverCh <-chan model.WireMeasurement
 	var errCh <-chan error
 	if kind == model.DirectionDownload {
@@ -243,12 +243,12 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 	}
 }
 
-func (h *Handler) writeResult(uuid string, kind model.TestDirection, result *model.NDT8Result) {
+func (h *Handler) writeResult(uuid string, kind model.TestDirection, result *model.Throughput1Result) {
 	_, err := persistence.WriteDataFile(
-		h.archivalDataDir, "ndt8", string(kind), uuid,
+		h.archivalDataDir, "throughput1", string(kind), uuid,
 		result)
 	if err != nil {
-		log.Error("failed to write ndt8 result", "uuid", uuid, "error", err)
+		log.Error("failed to write throughput1 result", "uuid", uuid, "error", err)
 		return
 	}
 }

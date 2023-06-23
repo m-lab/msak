@@ -16,7 +16,7 @@ import (
 	"github.com/m-lab/go/rtx"
 	"github.com/m-lab/msak/internal/handler"
 	"github.com/m-lab/msak/internal/netx"
-	"github.com/m-lab/msak/pkg/ndt8/spec"
+	"github.com/m-lab/msak/pkg/throughput1/spec"
 )
 
 var (
@@ -71,54 +71,54 @@ func main() {
 		rtx.Must(err, "Failed to load verifier")
 	}
 	// Enforce tokens on uploads and downloads.
-	ndt8TxPaths := controller.Paths{
+	throughput1TxPaths := controller.Paths{
 		spec.DownloadPath: true,
 		spec.UploadPath:   true,
 	}
-	ndt8TokenPaths := controller.Paths{
+	throughput1TokenPaths := controller.Paths{
 		spec.DownloadPath: true,
 		spec.UploadPath:   true,
 	}
 	acm, _ := controller.Setup(ctx, v, tokenVerify, tokenMachine,
-		ndt8TxPaths, ndt8TokenPaths)
+		throughput1TxPaths, throughput1TokenPaths)
 
-	ndt8Mux := http.NewServeMux()
-	ndt8Handler := handler.New(*flagDataDir)
-	ndt8Mux.Handle(spec.DownloadPath, http.HandlerFunc(ndt8Handler.Download))
-	ndt8Mux.Handle(spec.UploadPath, http.HandlerFunc(ndt8Handler.Upload))
-	ndt8ServerCleartext := httpServer(
+	throughput1Mux := http.NewServeMux()
+	throughput1Handler := handler.New(*flagDataDir)
+	throughput1Mux.Handle(spec.DownloadPath, http.HandlerFunc(throughput1Handler.Download))
+	throughput1Mux.Handle(spec.UploadPath, http.HandlerFunc(throughput1Handler.Upload))
+	throughput1ServerCleartext := httpServer(
 		*flagEndpointCleartext,
-		acm.Then(ndt8Mux))
+		acm.Then(throughput1Mux))
 
 	log.Info("About to listen for ws tests", "endpoint", *flagEndpointCleartext)
 
-	tcpl, err := net.Listen("tcp", ndt8ServerCleartext.Addr)
+	tcpl, err := net.Listen("tcp", throughput1ServerCleartext.Addr)
 	rtx.Must(err, "failed to create listener")
 	l := netx.NewListener(tcpl.(*net.TCPListener))
 	defer l.Close()
 
 	go func() {
-		err := ndt8ServerCleartext.Serve(l)
+		err := throughput1ServerCleartext.Serve(l)
 		rtx.Must(err, "Could not start cleartext server")
-		defer ndt8ServerCleartext.Close()
+		defer throughput1ServerCleartext.Close()
 	}()
 
 	// Only start TLS-based services if certs and keys are provided
 	if *flagCertFile != "" && *flagKeyFile != "" {
-		ndt8Server := httpServer(
+		throughput1Server := httpServer(
 			*flagEndpoint,
-			acm.Then(ndt8Mux))
+			acm.Then(throughput1Mux))
 		log.Info("About to listen for wss tests", "endpoint", *flagEndpoint)
 
-		tcpl, err := net.Listen("tcp", ndt8Server.Addr)
+		tcpl, err := net.Listen("tcp", throughput1Server.Addr)
 		rtx.Must(err, "failed to create listener")
 		l := netx.NewListener(tcpl.(*net.TCPListener))
 		defer l.Close()
 
 		go func() {
-			err := ndt8Server.ServeTLS(l, *flagCertFile, *flagKeyFile)
+			err := throughput1Server.ServeTLS(l, *flagCertFile, *flagKeyFile)
 			rtx.Must(err, "Could not start cleartext server")
-			defer ndt8Server.Close()
+			defer throughput1Server.Close()
 		}()
 	}
 

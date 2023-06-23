@@ -4,9 +4,9 @@ import (
 	"time"
 )
 
-// NDT8Result is the struct that is serialized as JSON to disk as the archival
-// record of an ndt8 test.
-type NDT8Result struct {
+// Throughput1Result is the struct that is serialized as JSON to disk as the archival
+// record of an throughput1 test.
+type Throughput1Result struct {
 	// GitShortCommit is the Git commit (short form) of the running server code.
 	GitShortCommit string
 	// Version is the symbolic version (if any) of the running server code.
