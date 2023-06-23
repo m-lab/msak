@@ -82,13 +82,13 @@ type Session struct {
 	// Started is true if this session's send loop has been started already.
 	Started bool
 	// StartedMu is the mutex associated to Started.
-	StartedMu *sync.Mutex
+	StartedMu sync.Mutex
 
 	// SendTimes is a slice of send times. The slice's index is the packet's
 	// sequence number.
 	SendTimes []time.Time
 	// SendTimesMu is a mutex to synchronize access to SendTimes.
-	SendTimesMu *sync.Mutex
+	SendTimesMu sync.Mutex
 
 	// Results is a list of latency packets.
 	Packets []Packet
@@ -130,15 +130,13 @@ func NewSession(id string) *Session {
 		ID:        id,
 		StartTime: time.Now(),
 
-		Started:   false,
-		StartedMu: &sync.Mutex{},
+		Started: false,
 
 		Packets: make([]Packet, 0),
 
 		LastRTT: &atomic.Int64{},
 
-		SendTimes:   []time.Time{},
-		SendTimesMu: &sync.Mutex{},
+		SendTimes: []time.Time{},
 	}
 }
 
