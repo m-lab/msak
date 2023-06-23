@@ -68,7 +68,7 @@ func (h *Handler) Upload(rw http.ResponseWriter, req *http.Request) {
 
 func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.ResponseWriter,
 	req *http.Request) {
-	mid, err := getMIDFromRequest(req)
+	mid, err := GetMIDFromRequest(req)
 	if err != nil {
 		ClientConnections.WithLabelValues(string(kind), "missing-mid").Inc()
 		log.Info("Received request without mid", "source", req.RemoteAddr,
@@ -253,13 +253,13 @@ func (h *Handler) writeResult(uuid string, kind model.TestDirection, result *mod
 	}
 }
 
-// getMIDFromRequest extracts the measurement id ("mid") from a given HTTP
+// GetMIDFromRequest extracts the measurement id ("mid") from a given HTTP
 // request, if present.
 //
 // A measurement ID can be specified in two ways: via a "mid" querystring
 // parameter (when access tokens are not required) or via the ID field
 // in the JWT access token.
-func getMIDFromRequest(req *http.Request) (string, error) {
+func GetMIDFromRequest(req *http.Request) (string, error) {
 	// If the request includes a valid JWT token, the claim and the ID are in
 	// the request's context already.
 	claims := controller.GetClaim(req.Context())
