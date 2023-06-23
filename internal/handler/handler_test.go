@@ -15,9 +15,9 @@ import (
 	"github.com/m-lab/go/rtx"
 	"github.com/m-lab/msak/internal/handler"
 	"github.com/m-lab/msak/internal/netx"
-	"github.com/m-lab/msak/pkg/ndt8"
-	"github.com/m-lab/msak/pkg/ndt8/model"
-	"github.com/m-lab/msak/pkg/ndt8/spec"
+	"github.com/m-lab/msak/pkg/throughput1"
+	"github.com/m-lab/msak/pkg/throughput1/model"
+	"github.com/m-lab/msak/pkg/throughput1/spec"
 )
 
 func TestNew(t *testing.T) {
@@ -27,31 +27,16 @@ func TestNew(t *testing.T) {
 	}
 }
 
-func TestHandlers(t *testing.T) {
-	// Server setup.
-	err := os.RemoveAll("testdata/")
-	rtx.Must(err, "failed to remove test folder")
-	h := handler.New("testdata/")
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("/download", h.Download)
-	mux.HandleFunc("/upload", h.Upload)
-
+func setupTestServer(datadir string, handler http.Handler) *httptest.Server {
 	tcpl, err := net.ListenTCP("tcp", nil)
 	rtx.Must(err, "cannot listen")
-
-	server := httptest.NewUnstartedServer(mux)
+	server := httptest.NewUnstartedServer(handler)
 	server.Listener = netx.NewListener(tcpl)
-	server.Start()
-	defer server.Close()
+	return server
+}
 
-	u, err := url.Parse(server.URL)
-	rtx.Must(err, "cannot get server URL")
-	u.Scheme = "ws"
-	headers := http.Header{}
-	headers.Add("Sec-WebSocket-Protocol", spec.SecWebSocketProtocol)
-
-	d := websocket.Dialer{
+func setupTestWSDialer(u *url.URL) *websocket.Dialer {
+	return &websocket.Dialer{
 		NetDialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 			conn, err := net.Dial("tcp", u.Host)
 			if err != nil {
@@ -60,15 +45,77 @@ func TestHandlers(t *testing.T) {
 			return netx.FromTCPConn(conn.(*net.TCPConn))
 		},
 	}
+}
 
+func TestHandler_Upload(t *testing.T) {
+	tempDir := t.TempDir()
+	h := handler.New(tempDir)
+
+	server := setupTestServer(tempDir, http.HandlerFunc(h.Upload))
+	server.Start()
+	defer server.Close()
+
+	u, err := url.Parse(server.URL)
+	rtx.Must(err, "cannot get server URL")
+	u.Scheme = "ws"
 	q := u.Query()
 	q.Add("mid", "test-mid")
 	q.Add("streams", "1")
 	q.Add("duration", "500")
 	u.RawQuery = q.Encode()
-	u.Path = "/download"
 
-	conn, _, err := d.Dial(u.String(), headers)
+	dialer := setupTestWSDialer(u)
+
+	headers := http.Header{}
+	headers.Add("Sec-WebSocket-Protocol", spec.SecWebSocketProtocol)
+
+	conn, _, err := dialer.Dial(u.String(), headers)
+	if err != nil {
+		t.Fatalf("websocket dial failed: %v", err)
+	}
+	if conn == nil {
+		t.Fatalf("websocket dial returned nil")
+	}
+	proto := throughput1.New(conn)
+	timeout, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+	senderCh, receiverCh, errCh := proto.SenderLoop(timeout)
+	drain(t, timeout, senderCh, receiverCh, errCh)
+
+	// Check that the output JSON file has been created.
+	files, err := os.ReadDir(tempDir)
+	if err != nil {
+		t.Fatalf("reading output folder failed: %v", err)
+	}
+	if len(files) != 1 {
+		t.Fatalf("invalid number of files in output folder")
+	}
+}
+
+func TestHandler_Download(t *testing.T) {
+	// Server setup.
+	tempDir := t.TempDir()
+	h := handler.New(tempDir)
+
+	server := setupTestServer(tempDir, http.HandlerFunc(h.Download))
+	server.Start()
+	defer server.Close()
+
+	u, err := url.Parse(server.URL)
+	rtx.Must(err, "cannot get server URL")
+	u.Scheme = "ws"
+	q := u.Query()
+	q.Add("mid", "test-mid")
+	q.Add("streams", "1")
+	q.Add("duration", "500")
+	u.RawQuery = q.Encode()
+
+	dialer := setupTestWSDialer(u)
+
+	headers := http.Header{}
+	headers.Add("Sec-WebSocket-Protocol", spec.SecWebSocketProtocol)
+
+	conn, _, err := dialer.Dial(u.String(), headers)
 	if err != nil {
 		t.Fatalf("websocket dial failed: %v", err)
 	}
@@ -76,49 +123,50 @@ func TestHandlers(t *testing.T) {
 		t.Fatalf("websocket dial returned nil")
 	}
 
-	proto := ndt8.New(conn)
+	proto := throughput1.New(conn)
 	timeout, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 	senderCh, receiverCh, errCh := proto.ReceiverLoop(timeout)
 	drain(t, timeout, senderCh, receiverCh, errCh)
 
 	// Check that the output JSON file has been created.
-	files, err := os.ReadDir("testdata/")
+	files, err := os.ReadDir(tempDir)
 	if err != nil {
 		t.Fatalf("reading output folder failed: %v", err)
 	}
 	if len(files) != 1 {
 		t.Fatalf("invalid number of files in output folder")
 	}
+}
 
-	// Test upload handler.
-	err = os.RemoveAll("testdata/")
-	rtx.Must(err, "failed to remove test folder")
-	u.Path = "/upload"
-	conn, _, err = d.Dial(u.String(), headers)
-	if err != nil {
-		t.Fatalf("websocket dial failed: %v", err)
-	}
-	if conn == nil {
-		t.Fatalf("websocket dial returned nil")
-	}
-	proto = ndt8.New(conn)
-	timeout, cancel = context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
-	senderCh, receiverCh, errCh = proto.SenderLoop(timeout)
-	drain(t, timeout, senderCh, receiverCh, errCh)
+func TestHandler_DownloadInvalidCC(t *testing.T) {
+	// Server setup.
+	tempDir := t.TempDir()
+	h := handler.New(tempDir)
 
-	// Check that the output JSON file has been created.
-	files, err = os.ReadDir("testdata/")
-	if err != nil {
-		t.Fatalf("reading output folder failed: %v", err)
-	}
-	if len(files) != 1 {
-		t.Fatalf("invalid number of files in output folder")
-	}
+	server := setupTestServer(tempDir, http.HandlerFunc(h.Download))
+	server.Start()
+	defer server.Close()
 
-	err = os.RemoveAll("testdata/")
-	rtx.Must(err, "failed to remove test folder")
+	u, err := url.Parse(server.URL)
+	rtx.Must(err, "cannot get server URL")
+	u.Scheme = "ws"
+	q := u.Query()
+	q.Add("mid", "test-mid")
+	q.Add("streams", "1")
+	q.Add("duration", "500")
+	q.Add("cc", "invalid")
+	u.RawQuery = q.Encode()
+
+	dialer := setupTestWSDialer(u)
+
+	headers := http.Header{}
+	headers.Add("Sec-WebSocket-Protocol", spec.SecWebSocketProtocol)
+
+	_, _, err = dialer.Dial(u.String(), headers)
+	if err == nil {
+		t.Fatalf("expected error on invalid cc, got nil")
+	}
 }
 
 // Utility function to drain sender/receiver channels in tests.
@@ -179,7 +227,12 @@ func TestHandler_Validation(t *testing.T) {
 		},
 		{
 			name:       "missing Upgrade header",
-			target:     "/?mid=test&streams=2&duration=5s",
+			target:     "/?mid=test&streams=2&duration=5000",
+			statusCode: http.StatusBadRequest,
+		},
+		{
+			name:       "unsupported CC",
+			target:     "/?mid=test&streams=2&cc=invalid",
 			statusCode: http.StatusBadRequest,
 		},
 	}

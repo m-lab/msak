@@ -1,4 +1,4 @@
-package ndt8
+package throughput1
 
 import (
 	"context"
@@ -15,8 +15,8 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/m-lab/msak/internal/measurer"
 	"github.com/m-lab/msak/internal/netx"
-	"github.com/m-lab/msak/pkg/ndt8/model"
-	"github.com/m-lab/msak/pkg/ndt8/spec"
+	"github.com/m-lab/msak/pkg/throughput1/model"
+	"github.com/m-lab/msak/pkg/throughput1/spec"
 )
 
 type senderFunc func(ctx context.Context,
@@ -27,7 +27,7 @@ type Measurer interface {
 	Start(context.Context, net.Conn) <-chan model.Measurement
 }
 
-// DefaultMeasurer is the default ndt8 measurer that wraps the measurer
+// DefaultMeasurer is the default throughput1 measurer that wraps the measurer
 // package's Start function.
 type DefaultMeasurer struct{}
 
@@ -36,7 +36,7 @@ func (*DefaultMeasurer) Start(ctx context.Context,
 	return measurer.Start(ctx, c)
 }
 
-// Protocol is the implementation of the ndt8 protocol.
+// Protocol is the implementation of the throughput1 protocol.
 type Protocol struct {
 	conn     *websocket.Conn
 	connInfo netx.ConnInfo
@@ -61,7 +61,7 @@ func New(conn *websocket.Conn) *Protocol {
 // Upgrade takes a HTTP request and upgrades the connection to WebSocket.
 // Returns a websocket Conn if the upgrade succeeded, and an error otherwise.
 func Upgrade(w http.ResponseWriter, r *http.Request) (*websocket.Conn, error) {
-	// We expect WebSocket's subprotocol to be ndt8's. The same subprotocol is
+	// We expect WebSocket's subprotocol to be throughput1's. The same subprotocol is
 	// added as a header on the response.
 	if r.Header.Get("Sec-WebSocket-Protocol") != spec.SecWebSocketProtocol {
 		w.WriteHeader(http.StatusBadRequest)
@@ -91,7 +91,7 @@ func (p *Protocol) makePreparedMessage(size int) (*websocket.PreparedMessage, er
 	return websocket.NewPreparedMessage(websocket.BinaryMessage, data)
 }
 
-// SenderLoop starts the send loop of the ndt8 protocol. The context's lifetime
+// SenderLoop starts the send loop of the throughput1 protocol. The context's lifetime
 // determines how long to run for. It returns one channel for sender-side
 // measurements, one channel for receiver-side measurements and one channel for
 // errors. While the measurements channels could be ignored, the errors channel
@@ -101,7 +101,7 @@ func (p *Protocol) SenderLoop(ctx context.Context) (<-chan model.WireMeasurement
 	return p.senderReceiverLoop(ctx, p.sender)
 }
 
-// ReceiverLoop starts the receiver loop of the ndt8 protocol. The context's
+// ReceiverLoop starts the receiver loop of the throughput1 protocol. The context's
 // lifetime determines how long to run for. It returns one channel for
 // sender-side measurements, one channel for receiver-side measurements and one
 // channel for errors. While the measurements channels could be ignored, the

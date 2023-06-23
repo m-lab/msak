@@ -1,6 +1,6 @@
 // The measurer package provides functions to periodically read kernel metrics
 // for a given network connection and return them over a channel wrapped in an
-// ndt8 Measurement object.
+// throughput1 Measurement object.
 package measurer
 
 import (
@@ -12,11 +12,11 @@ import (
 	"github.com/m-lab/go/memoryless"
 	"github.com/m-lab/go/rtx"
 	"github.com/m-lab/msak/internal/netx"
-	"github.com/m-lab/msak/pkg/ndt8/model"
-	"github.com/m-lab/msak/pkg/ndt8/spec"
+	"github.com/m-lab/msak/pkg/throughput1/model"
+	"github.com/m-lab/msak/pkg/throughput1/spec"
 )
 
-type ndt8Measurer struct {
+type throughput1Measurer struct {
 	connInfo            netx.ConnInfo
 	startTime           time.Time
 	bytesReadAtStart    int64
@@ -33,7 +33,7 @@ type ndt8Measurer struct {
 // If passed a connection that is not a netx.Conn, this function will panic.
 func Start(ctx context.Context, conn net.Conn) <-chan model.Measurement {
 	// Implementation note: this channel must be buffered to account for slow
-	// readers. The "typical" reader is an ndt8 send or receive loop, which
+	// readers. The "typical" reader is an throughput1 send or receive loop, which
 	// might be busy with data r/w. The buffer size corresponds to at least 10
 	// seconds:
 	//
@@ -42,7 +42,7 @@ func Start(ctx context.Context, conn net.Conn) <-chan model.Measurement {
 
 	connInfo := netx.ToConnInfo(conn)
 	read, written := connInfo.ByteCounters()
-	m := &ndt8Measurer{
+	m := &throughput1Measurer{
 		connInfo:  connInfo,
 		dstChan:   dst,
 		startTime: time.Now(),
@@ -58,7 +58,7 @@ func Start(ctx context.Context, conn net.Conn) <-chan model.Measurement {
 	return dst
 }
 
-func (m *ndt8Measurer) loop(ctx context.Context) {
+func (m *throughput1Measurer) loop(ctx context.Context) {
 	log.Debug("Measurer started", "context", ctx)
 	defer log.Debug("Measurer stopped", "context", ctx)
 	t, err := memoryless.NewTicker(ctx, memoryless.Config{
@@ -81,7 +81,7 @@ func (m *ndt8Measurer) loop(ctx context.Context) {
 	}
 }
 
-func (m *ndt8Measurer) measure(ctx context.Context) {
+func (m *throughput1Measurer) measure(ctx context.Context) {
 	// On non-Linux systems, collecting kernel metrics WILL fail. In that case,
 	// we still want to return a (empty) Measurement.
 	bbrInfo, tcpInfo, err := m.connInfo.Info()
