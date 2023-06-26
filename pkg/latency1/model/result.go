@@ -114,8 +114,8 @@ type Summary struct {
 	ID string
 	// StartTime is the test's start time.
 	StartTime time.Time
-	// Results is a list of RTT results.
-	Results []RoundTrip
+	// RoundTrips is a list of roundtrips.
+	RoundTrips []RoundTrip
 
 	// PacketSent is the number of packets sent during this measurement.
 	PacketsSent int
@@ -162,6 +162,6 @@ func (s *Session) Summarize() *Summary {
 		StartTime:       s.StartTime,
 		PacketsSent:     len(s.SendTimes),
 		PacketsReceived: s.PacketsReceived(),
-		Results:         s.RoundTrips,
+		RoundTrips:      s.RoundTrips,
 	}
 }
