@@ -174,14 +174,7 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 		}
 	}
 
-	uuid, err := conn.UUID()
-	if err != nil {
-		// UUID() has a fallback that won't ever fail. This should not happen.
-		log.Error("Failed to read UUID", "ctx",
-			fmt.Sprintf("%p", req.Context()), "error", err)
-		wsConn.Close()
-		return
-	}
+	uuid := conn.UUID()
 	archivalData := model.Throughput1Result{
 		MeasurementID:  mid,
 		UUID:           uuid,

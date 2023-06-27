@@ -109,9 +109,6 @@ func TestConn_GetInfoAndUUID(t *testing.T) {
 	if c, ok = got.(netx.ConnInfo); !ok {
 		t.Fatalf("Listener.Accept() wrong Conn type = %T, want netx.Conn", got)
 	}
-	if _, err := c.UUID(); err != nil {
-		t.Errorf("GetUUID failed: %v", err)
-	}
 	if _, _, err = c.Info(); err != nil {
 		t.Fatalf("GetInfo failed: %v", err)
 	}
@@ -232,7 +229,7 @@ func TestSaveAndLoadCtx(t *testing.T) {
 	}
 
 	// Check that the UUID is saved to the context.
-	expected, _ := c.UUID()
+	expected := c.UUID()
 	ctx := c.SaveUUID(context.Background())
 	actual := netx.LoadUUID(ctx)
 	if actual != expected {
