@@ -15,7 +15,9 @@ import (
 	"github.com/m-lab/go/prometheusx"
 	"github.com/m-lab/go/rtx"
 	"github.com/m-lab/msak/internal/handler"
+	"github.com/m-lab/msak/internal/latency1"
 	"github.com/m-lab/msak/internal/netx"
+	latency1spec "github.com/m-lab/msak/pkg/latency1/spec"
 	"github.com/m-lab/msak/pkg/throughput1/spec"
 )
 
@@ -25,9 +27,12 @@ var (
 	flagEndpoint          = flag.String("wss_addr", ":4443", "Listen address/port for TLS connections")
 	flagEndpointCleartext = flag.String("ws_addr", ":8080", "Listen address/port for cleartext connections")
 	flagDataDir           = flag.String("datadir", "./data", "Directory to store data in")
-	tokenVerifyKey        = flagx.FileBytesArray{}
-	tokenVerify           bool
-	tokenMachine          string
+	flagLatencyEndpoint   = flag.String("latency_addr", ":1053", "Listen address/port for UDP latency tests")
+	flagLatencyTTL        = flag.Duration("latency_ttl",
+		latency1spec.DefaultSessionCacheTTL, "Session cache's TTL")
+	tokenVerifyKey = flagx.FileBytesArray{}
+	tokenVerify    bool
+	tokenMachine   string
 
 	// Context for the whole program.
 	ctx, cancel = context.WithCancel(context.Background())
@@ -82,13 +87,19 @@ func main() {
 	acm, _ := controller.Setup(ctx, v, tokenVerify, tokenMachine,
 		throughput1TxPaths, throughput1TokenPaths)
 
-	throughput1Mux := http.NewServeMux()
+	mux := http.NewServeMux()
+	latency1Handler := latency1.NewHandler(*flagDataDir, *flagLatencyTTL)
 	throughput1Handler := handler.New(*flagDataDir)
-	throughput1Mux.Handle(spec.DownloadPath, http.HandlerFunc(throughput1Handler.Download))
-	throughput1Mux.Handle(spec.UploadPath, http.HandlerFunc(throughput1Handler.Upload))
+
+	mux.Handle(spec.DownloadPath, http.HandlerFunc(throughput1Handler.Download))
+	mux.Handle(spec.UploadPath, http.HandlerFunc(throughput1Handler.Upload))
+	mux.Handle(latency1spec.AuthorizeV1, http.HandlerFunc(
+		latency1Handler.Authorize))
+	mux.Handle(latency1spec.ResultV1, http.HandlerFunc(
+		latency1Handler.Result))
 	throughput1ServerCleartext := httpServer(
 		*flagEndpointCleartext,
-		acm.Then(throughput1Mux))
+		acm.Then(mux))
 
 	log.Info("About to listen for ws tests", "endpoint", *flagEndpointCleartext)
 
@@ -107,7 +118,7 @@ func main() {
 	if *flagCertFile != "" && *flagKeyFile != "" {
 		throughput1Server := httpServer(
 			*flagEndpoint,
-			acm.Then(throughput1Mux))
+			acm.Then(mux))
 		log.Info("About to listen for wss tests", "endpoint", *flagEndpoint)
 
 		tcpl, err := net.Listen("tcp", throughput1Server.Addr)
@@ -121,6 +132,15 @@ func main() {
 			defer throughput1Server.Close()
 		}()
 	}
+
+	// Start a UDP server for latency measurements.
+	addr, err := net.ResolveUDPAddr("udp", *flagLatencyEndpoint)
+	rtx.Must(err, "failed to resolve latency endpoint address")
+	udpServer, err := net.ListenUDP("udp", addr)
+	rtx.Must(err, "cannot start latency UDP server")
+	defer udpServer.Close()
+
+	go latency1Handler.ProcessPacketLoop(udpServer)
 
 	<-ctx.Done()
 	cancel()
