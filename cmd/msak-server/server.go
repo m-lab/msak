@@ -39,7 +39,11 @@ func init() {
 	flag.StringVar(&tokenMachine, "token.machine", "", "Use given machine name to verify token claims")
 }
 
-// httpServer creates a new *http.Server with explicit Read and Write timeouts.
+// httpServer creates a new *http.Server with explicit Read and Write
+// timeouts, the provided address and handler, and an empty TLS configuration.
+//
+// This server can only be used with a net.Listener that returns netx.ConnInfo
+// after accepting a new connection.
 func httpServer(addr string, handler http.Handler) *http.Server {
 	tlsconf := &tls.Config{}
 	return &http.Server{
@@ -52,6 +56,9 @@ func httpServer(addr string, handler http.Handler) *http.Server {
 		// servers.
 		ReadTimeout:  time.Minute,
 		WriteTimeout: time.Minute,
+		ConnContext: func(ctx context.Context, c net.Conn) context.Context {
+			return netx.ToConnInfo(c).SaveUUID(ctx)
+		},
 	}
 }
 
