@@ -1,6 +1,7 @@
 package netx
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net"
@@ -16,6 +17,10 @@ import (
 	"github.com/m-lab/tcp-info/tcp"
 	"github.com/m-lab/uuid"
 )
+
+type contextKey string
+
+const uuidCtxKey = "netx-uuid"
 
 // ConnInfo provides operations on a net.Conn's underlying file descriptor.
 type ConnInfo interface {
@@ -119,4 +124,21 @@ func (c *Conn) UUID() (string, error) {
 		uuid = gid.String()
 	}
 	return uuid, nil
+}
+
+// SaveUUID saves this connection's UUID in a context.Context using a globally
+// unique key. LoadUUID should be used to retrieve the uuid from the context.
+func (c *Conn) SaveUUID(ctx context.Context) context.Context {
+	uuid, _ := c.UUID()
+	return context.WithValue(ctx, contextKey(uuidCtxKey), uuid)
+}
+
+// LoadUUID reads a connection UUID from a context.Context using a globally
+// unique key. Returns an empty string if the UUID is not found in the context.
+func LoadUUID(ctx context.Context) string {
+	uuid, ok := ctx.Value(contextKey(uuidCtxKey)).(string)
+	if !ok {
+		return ""
+	}
+	return uuid
 }
