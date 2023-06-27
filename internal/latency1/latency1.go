@@ -91,7 +91,7 @@ func (h *Handler) Authorize(rw http.ResponseWriter, req *http.Request) {
 	h.sessions.Set(mid, session, ttlcache.DefaultTTL)
 	h.sessionsMu.Unlock()
 
-	log.Debug("session created", "id", mid)
+	log.Debug("session created", "id", mid, "uuid", uuid)
 
 	// Create a valid kickoff packet for this session and send it in the
 	// response body.
