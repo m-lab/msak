@@ -30,6 +30,7 @@ type ConnInfo interface {
 	UUID() (string, error)
 	GetCC() (string, error)
 	SetCC(string) error
+	SaveUUID(context.Context) context.Context
 }
 
 // ToConnInfo is a helper function to convert a net.Conn into a netx.ConnInfo.

@@ -1,6 +1,7 @@
 package netx_test
 
 import (
+	"context"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -204,4 +205,38 @@ func TestToConnInfoPanic(t *testing.T) {
 	}()
 
 	netx.ToConnInfo(&net.UDPConn{})
+}
+
+func TestSaveAndLoadCtx(t *testing.T) {
+	tcpl, err := net.ListenTCP("tcp", &net.TCPAddr{})
+	rtx.Must(err, "failed to create listener")
+	l := netx.NewListener(tcpl)
+	defer l.Close()
+	dialAsync(t, tcpl.Addr().String())
+	got, err := l.Accept()
+	if err != nil {
+		t.Fatalf("Listener.Accept() unexpected error = %v", err)
+	}
+	defer got.Close()
+
+	var c netx.ConnInfo
+	var ok bool
+	if c, ok = got.(netx.ConnInfo); !ok {
+		t.Fatalf("Listener.Accept() wrong Conn type = %T, want netx.Conn", got)
+	}
+
+	// Attempt to load a UUID from the context when there isn't any.
+	uuid := netx.LoadUUID(context.Background())
+	if uuid != "" {
+		t.Errorf("LoadUUID: expected empty string, got %s", uuid)
+	}
+
+	// Check that the UUID is saved to the context.
+	expected, _ := c.UUID()
+	ctx := c.SaveUUID(context.Background())
+	actual := netx.LoadUUID(ctx)
+	if actual != expected {
+		t.Errorf("LoadUUID returned wrong value (expected %s, got %s)",
+			expected, actual)
+	}
 }
