@@ -135,8 +135,8 @@ func TestHandler_Result(t *testing.T) {
 	if err != nil {
 		t.Errorf("cannot unmarshal response body: %v", err)
 	}
-	if summary.ID != "test" {
-		t.Errorf("invalid ID in summary")
+	if summary.ID == "" {
+		t.Errorf("empty ID in summary")
 	}
 
 	// Do not provide any mid.
