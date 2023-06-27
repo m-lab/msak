@@ -14,6 +14,7 @@ import (
 	"github.com/m-lab/go/memoryless"
 	"github.com/m-lab/go/rtx"
 	"github.com/m-lab/msak/internal/handler"
+	"github.com/m-lab/msak/internal/netx"
 	"github.com/m-lab/msak/internal/persistence"
 	"github.com/m-lab/msak/pkg/latency1/model"
 )
@@ -77,8 +78,16 @@ func (h *Handler) Authorize(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	// Retrieve the connection's UUID from context.
+	uuid := netx.LoadUUID(req.Context())
+	if uuid == "" {
+		// This cannot happen unless the HTTP server instance is misconfigured.
+		log.Fatal("received request without UUID", "addr", req.RemoteAddr)
+	}
+
 	// Create a new session for this mid.
 	session := model.NewSession(mid)
+	session.UUID = uuid
 	h.sessionsMu.Lock()
 	h.sessions.Set(mid, session, ttlcache.DefaultTTL)
 	h.sessionsMu.Unlock()
