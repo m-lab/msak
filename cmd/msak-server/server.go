@@ -46,7 +46,7 @@ func init() {
 // after accepting a new connection.
 func httpServer(addr string, handler http.Handler) *http.Server {
 	tlsconf := &tls.Config{}
-	return &http.Server{
+	s := &http.Server{
 		Addr:      addr,
 		Handler:   handler,
 		TLSConfig: tlsconf,
@@ -60,6 +60,8 @@ func httpServer(addr string, handler http.Handler) *http.Server {
 			return netx.ToConnInfo(c).SaveUUID(ctx)
 		},
 	}
+	s.SetKeepAlivesEnabled(false)
+	return s
 }
 
 func main() {
