@@ -145,11 +145,11 @@ func main() {
 	// Start a UDP server for latency measurements.
 	addr, err := net.ResolveUDPAddr("udp", *flagLatencyEndpoint)
 	rtx.Must(err, "failed to resolve latency endpoint address")
-	udpServer, err := net.ListenUDP("udp", addr)
+	udpListener, err := net.ListenUDP("udp", addr)
 	rtx.Must(err, "cannot start latency UDP server")
-	defer udpServer.Close()
+	defer udpListener.Close()
 
-	go latency1Handler.ProcessPacketLoop(udpServer)
+	go latency1Handler.ProcessPacketLoop(udpListener)
 
 	<-ctx.Done()
 	cancel()
