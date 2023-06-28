@@ -33,6 +33,10 @@ type ArchivalData struct {
 	// ID is the unique identifier for this latency measurement.
 	ID string
 
+	// UUID is the unique identifier of the TCP connection that started this
+	// latency measurement.
+	UUID string
+
 	// Client is the client's ip:port pair.
 	Client string
 	// Server is the server's ip:port pair.
@@ -67,8 +71,10 @@ type RoundTrip struct {
 // Session is the in-memory structure holding information about a UDP latency
 // measurement session.
 type Session struct {
-	// ID is the unique identifier for this latency measurement.
-	ID string
+	// UUID is the unique identifier of the TCP connection that started
+	// this latency measurement.
+	UUID string
+
 	// StartTime is the test's start time.
 	StartTime time.Time
 	// EndTime is the test's end time.
@@ -125,9 +131,9 @@ type Summary struct {
 }
 
 // NewSession returns an empty Session with all the fields initialized.
-func NewSession(id string) *Session {
+func NewSession(uuid string) *Session {
 	return &Session{
-		ID:        id,
+		UUID:      uuid,
 		StartTime: time.Now(),
 
 		Started: false,
@@ -143,7 +149,7 @@ func NewSession(id string) *Session {
 // Archive converts this Session to ArchivalData.
 func (s *Session) Archive() *ArchivalData {
 	return &ArchivalData{
-		ID:              s.ID,
+		ID:              s.UUID,
 		GitShortCommit:  prometheusx.GitShortCommit,
 		Version:         "TODO",
 		Client:          s.Client,
@@ -158,7 +164,7 @@ func (s *Session) Archive() *ArchivalData {
 // Summarize converts this Session to a Summary.
 func (s *Session) Summarize() *Summary {
 	return &Summary{
-		ID:              s.ID,
+		ID:              s.UUID,
 		StartTime:       s.StartTime,
 		PacketsSent:     len(s.SendTimes),
 		PacketsReceived: s.PacketsReceived(),

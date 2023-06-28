@@ -1,6 +1,7 @@
 package latency1
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/jellydator/ttlcache/v3"
+	"github.com/m-lab/msak/internal/netx"
 	"github.com/m-lab/msak/pkg/latency1/model"
 )
 
@@ -67,7 +69,10 @@ func TestHandler_Authorize(t *testing.T) {
 	h := NewHandler(tempDir, 5*time.Second)
 
 	rw := httptest.NewRecorder()
-	req, err := http.NewRequest(http.MethodGet, "/latency/v1/authorize", nil)
+	conn := netx.Conn{}
+	ctx := conn.SaveUUID(context.Background())
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
+		"/latency/v1/authorize", nil)
 	if err != nil {
 		t.Fatalf("cannot create request: %v", err)
 	}
@@ -94,7 +99,10 @@ func TestHandler_Result(t *testing.T) {
 	tempDir := t.TempDir()
 	h := NewHandler(tempDir, 5*time.Second)
 	rw := httptest.NewRecorder()
-	req, err := http.NewRequest(http.MethodGet, "/latency/v1/authorize", nil)
+	conn := netx.Conn{}
+	ctx := conn.SaveUUID(context.Background())
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
+		"/latency/v1/authorize", nil)
 	if err != nil {
 		t.Fatalf("cannot create request: %v", err)
 	}
@@ -127,8 +135,8 @@ func TestHandler_Result(t *testing.T) {
 	if err != nil {
 		t.Errorf("cannot unmarshal response body: %v", err)
 	}
-	if summary.ID != "test" {
-		t.Errorf("invalid ID in summary")
+	if summary.ID == "" {
+		t.Errorf("empty ID in summary")
 	}
 
 	// Do not provide any mid.
