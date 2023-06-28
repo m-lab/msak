@@ -286,10 +286,7 @@ func (p *Protocol) createWireMeasurement(ctx context.Context) model.WireMeasurem
 		log.Printf("failed to read cc (ctx %p): %v\n",
 			ctx, err)
 	}
-	uuid, err := p.connInfo.UUID()
-	if err != nil {
-		log.Printf("failed to get UUID (ctx %p): %v\n", ctx, err)
-	}
+	uuid := p.connInfo.UUID()
 	wm.CC = cc
 	wm.UUID = uuid
 	return wm
