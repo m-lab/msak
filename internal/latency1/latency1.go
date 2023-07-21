@@ -156,7 +156,7 @@ func (h *Handler) Result(rw http.ResponseWriter, req *http.Request) {
 // sendLoop sends UDP pings with progressive sequence numbers until the context
 // expires or is canceled.
 func (h *Handler) sendLoop(ctx context.Context, conn net.PacketConn,
-	remoteAddr net.Addr, session *model.Session, duration time.Duration) error {
+	remoteAddr net.Addr, id string, session *model.Session, duration time.Duration) error {
 	seq := 0
 	var err error
 
@@ -165,7 +165,7 @@ func (h *Handler) sendLoop(ctx context.Context, conn net.PacketConn,
 
 	memoryless.Run(timeout, func() {
 		b, marshalErr := json.Marshal(&model.LatencyPacket{
-			ID:      session.UUID,
+			ID:      id,
 			Type:    "s2c",
 			Seq:     seq,
 			LastRTT: int(session.LastRTT.Load()),
@@ -272,7 +272,7 @@ func (h *Handler) processPacket(conn net.PacketConn, remoteAddr net.Addr,
 			session.Started = true
 			session.Client = remoteAddr.String()
 			session.Server = conn.LocalAddr().String()
-			go h.sendLoop(context.Background(), conn, remoteAddr, session,
+			go h.sendLoop(context.Background(), conn, remoteAddr, m.ID, session,
 				sendDuration)
 		}
 	}
