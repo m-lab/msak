@@ -84,21 +84,21 @@ func main() {
 	if (tokenVerify) && err != nil {
 		rtx.Must(err, "Failed to load verifier")
 	}
-	// Enforce tokens on uploads and downloads.
-	throughput1TxPaths := controller.Paths{
+	// Enforce tokens and txcontroller on every endpoint.
+	txControllerPaths := controller.Paths{
 		spec.DownloadPath:        true,
 		spec.UploadPath:          true,
 		latency1spec.AuthorizeV1: true,
 		latency1spec.ResultV1:    true,
 	}
-	throughput1TokenPaths := controller.Paths{
+	tokenPaths := controller.Paths{
 		spec.DownloadPath:        true,
 		spec.UploadPath:          true,
 		latency1spec.AuthorizeV1: true,
 		latency1spec.ResultV1:    true,
 	}
 	acm, _ := controller.Setup(ctx, v, tokenVerify, tokenMachine,
-		throughput1TxPaths, throughput1TokenPaths)
+		txControllerPaths, tokenPaths)
 
 	mux := http.NewServeMux()
 	latency1Handler := latency1.NewHandler(*flagDataDir, *flagLatencyTTL)
