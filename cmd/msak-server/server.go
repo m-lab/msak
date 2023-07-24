@@ -86,12 +86,16 @@ func main() {
 	}
 	// Enforce tokens on uploads and downloads.
 	throughput1TxPaths := controller.Paths{
-		spec.DownloadPath: true,
-		spec.UploadPath:   true,
+		spec.DownloadPath:        true,
+		spec.UploadPath:          true,
+		latency1spec.AuthorizeV1: true,
+		latency1spec.ResultV1:    true,
 	}
 	throughput1TokenPaths := controller.Paths{
-		spec.DownloadPath: true,
-		spec.UploadPath:   true,
+		spec.DownloadPath:        true,
+		spec.UploadPath:          true,
+		latency1spec.AuthorizeV1: true,
+		latency1spec.ResultV1:    true,
 	}
 	acm, _ := controller.Setup(ctx, v, tokenVerify, tokenMachine,
 		throughput1TxPaths, throughput1TokenPaths)
@@ -106,39 +110,39 @@ func main() {
 		latency1Handler.Authorize))
 	mux.Handle(latency1spec.ResultV1, http.HandlerFunc(
 		latency1Handler.Result))
-	throughput1ServerCleartext := httpServer(
+	serverCleartext := httpServer(
 		*flagEndpointCleartext,
 		acm.Then(mux))
 
 	log.Info("About to listen for ws tests", "endpoint", *flagEndpointCleartext)
 
-	tcpl, err := net.Listen("tcp", throughput1ServerCleartext.Addr)
+	tcpl, err := net.Listen("tcp", serverCleartext.Addr)
 	rtx.Must(err, "failed to create listener")
 	l := netx.NewListener(tcpl.(*net.TCPListener))
 	defer l.Close()
 
 	go func() {
-		err := throughput1ServerCleartext.Serve(l)
+		err := serverCleartext.Serve(l)
 		rtx.Must(err, "Could not start cleartext server")
-		defer throughput1ServerCleartext.Close()
+		defer serverCleartext.Close()
 	}()
 
 	// Only start TLS-based services if certs and keys are provided
 	if *flagCertFile != "" && *flagKeyFile != "" {
-		throughput1Server := httpServer(
+		server := httpServer(
 			*flagEndpoint,
 			acm.Then(mux))
 		log.Info("About to listen for wss tests", "endpoint", *flagEndpoint)
 
-		tcpl, err := net.Listen("tcp", throughput1Server.Addr)
+		tcpl, err := net.Listen("tcp", server.Addr)
 		rtx.Must(err, "failed to create listener")
 		l := netx.NewListener(tcpl.(*net.TCPListener))
 		defer l.Close()
 
 		go func() {
-			err := throughput1Server.ServeTLS(l, *flagCertFile, *flagKeyFile)
+			err := server.ServeTLS(l, *flagCertFile, *flagKeyFile)
 			rtx.Must(err, "Could not start cleartext server")
-			defer throughput1Server.Close()
+			defer server.Close()
 		}()
 	}
 
