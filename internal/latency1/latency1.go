@@ -14,6 +14,7 @@ import (
 	"github.com/m-lab/go/memoryless"
 	"github.com/m-lab/go/rtx"
 	"github.com/m-lab/msak/internal/handler"
+	"github.com/m-lab/msak/internal/netx"
 	"github.com/m-lab/msak/internal/persistence"
 	"github.com/m-lab/msak/pkg/latency1/model"
 )
@@ -44,7 +45,7 @@ func NewHandler(dir string, cacheTTL time.Duration) *Handler {
 	cache.OnEviction(func(ctx context.Context,
 		er ttlcache.EvictionReason,
 		i *ttlcache.Item[string, *model.Session]) {
-		log.Debug("Session expired", "id", i.Value().ID, "reason", er)
+		log.Debug("Session expired", "id", i.Key(), "reason", er)
 
 		// Save data to disk when the session expires.
 		archive := i.Value().Archive()
@@ -77,13 +78,20 @@ func (h *Handler) Authorize(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	// Retrieve the connection's UUID from context.
+	uuid := netx.LoadUUID(req.Context())
+	if uuid == "" {
+		// This cannot happen unless the HTTP server instance is misconfigured.
+		log.Fatal("received request without UUID", "addr", req.RemoteAddr)
+	}
+
 	// Create a new session for this mid.
-	session := model.NewSession(mid)
+	session := model.NewSession(uuid)
 	h.sessionsMu.Lock()
 	h.sessions.Set(mid, session, ttlcache.DefaultTTL)
 	h.sessionsMu.Unlock()
 
-	log.Debug("session created", "id", mid)
+	log.Debug("session created", "id", mid, "uuid", uuid)
 
 	// Create a valid kickoff packet for this session and send it in the
 	// response body.
@@ -148,7 +156,7 @@ func (h *Handler) Result(rw http.ResponseWriter, req *http.Request) {
 // sendLoop sends UDP pings with progressive sequence numbers until the context
 // expires or is canceled.
 func (h *Handler) sendLoop(ctx context.Context, conn net.PacketConn,
-	remoteAddr net.Addr, session *model.Session, duration time.Duration) error {
+	remoteAddr net.Addr, id string, session *model.Session, duration time.Duration) error {
 	seq := 0
 	var err error
 
@@ -157,7 +165,7 @@ func (h *Handler) sendLoop(ctx context.Context, conn net.PacketConn,
 
 	memoryless.Run(timeout, func() {
 		b, marshalErr := json.Marshal(&model.LatencyPacket{
-			ID:      session.ID,
+			ID:      id,
 			Type:    "s2c",
 			Seq:     seq,
 			LastRTT: int(session.LastRTT.Load()),
@@ -198,7 +206,7 @@ func (h *Handler) sendLoop(ctx context.Context, conn net.PacketConn,
 
 		seq++
 
-		log.Debug("packet sent", "len", n, "id", session.ID, "seq", seq)
+		log.Debug("packet sent", "len", n, "uuid", session.UUID, "seq", seq)
 
 	}, memoryless.Config{
 		// Using randomized intervals allows to detect cyclic network
@@ -249,7 +257,7 @@ func (h *Handler) processPacket(conn net.PacketConn, remoteAddr net.Addr,
 		session.RoundTrips[m.Seq].RTT = int(rtt)
 		session.RoundTrips[m.Seq].Lost = false
 
-		log.Debug("received pong, updating result", "mid", session.ID,
+		log.Debug("received pong, updating result", "uuid", session.UUID,
 			"result", session.RoundTrips[m.Seq])
 		// TODO: prometheus metric
 		return nil
@@ -264,7 +272,7 @@ func (h *Handler) processPacket(conn net.PacketConn, remoteAddr net.Addr,
 			session.Started = true
 			session.Client = remoteAddr.String()
 			session.Server = conn.LocalAddr().String()
-			go h.sendLoop(context.Background(), conn, remoteAddr, session,
+			go h.sendLoop(context.Background(), conn, remoteAddr, m.ID, session,
 				sendDuration)
 		}
 	}
