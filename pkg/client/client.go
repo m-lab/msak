@@ -209,11 +209,7 @@ func (c *NDT8Client) start(ctx context.Context, subtest spec.SubtestKind) error 
 
 			// To store measurement results we use a map associating the
 			// TCP flow's unique identifier to the corresponding results.
-			uuid, err := netxConn.UUID()
-			if err != nil {
-				log.Print(err)
-				return
-			}
+			uuid := netxConn.UUID()
 
 			result.UUID = uuid
 			result.StartTime = time.Now().UTC()
@@ -239,8 +235,9 @@ func (c *NDT8Client) start(ctx context.Context, subtest spec.SubtestKind) error 
 				case <-globalTimeout.Done():
 					return
 				case m := <-senderCh:
-					fmt.Printf("ID: #%d, Elapsed: %.3f, Goodput: %f (MinRTT: %d)\n", streamID, time.Since(globalStartTime).Seconds(),
-						float64(m.BytesReceived)/float64(m.ElapsedTime)*8, m.TCPInfo.MinRTT)
+					fmt.Printf("ID: #%d, Elapsed: %.3f, goodput: %f, throughput: %f (MinRTT: %d)\n", streamID, time.Since(globalStartTime).Seconds(),
+						float64(m.Application.BytesReceived)/float64(m.ElapsedTime)*8,
+						float64(m.Network.BytesReceived)/float64(m.ElapsedTime)*8, m.TCPInfo.MinRTT)
 				case <-receiverCh:
 					// NOTHING
 				case err := <-errCh:
