@@ -24,13 +24,10 @@ type WireMeasurement struct {
 // The Measurement struct contains measurement results. This structure is
 // meant to be serialised as JSON and sent as a textual message.
 type Measurement struct {
-	// BytesSent is the number of bytes sent at the application level by the
-	// party sending this Measurement.
-	BytesSent int64 `json:",omitempty"`
-
-	// BytesReceived is the number of bytes received at the application level
-	// by the party sending this Measurement.
-	BytesReceived int64 `json:",omitempty"`
+	// Application contains the application-level BytesSent/Received pair.
+	Application ByteCounters
+	// Network contains the network-level BytesSent/Received pair.
+	Network ByteCounters
 
 	// ElapsedTime is the time elapsed since the start of the measurement
 	// according to the party sending this Measurement.
@@ -45,6 +42,14 @@ type Measurement struct {
 	// metrics for this TCP stream. Only applicable when the party sending this
 	// Measurement has access to it.
 	TCPInfo *TCPInfo `json:",omitempty"`
+}
+
+type ByteCounters struct {
+	// BytesSent is the number of bytes sent.
+	BytesSent int64 `json:",omitempty"`
+
+	// BytesReceived is the number of bytes received.
+	BytesReceived int64 `json:",omitempty"`
 }
 
 // TCPInfo is an extension to Linux's TCPInfo struct that includes the time
