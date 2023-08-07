@@ -235,11 +235,21 @@ func (c *NDT8Client) start(ctx context.Context, subtest spec.SubtestKind) error 
 				case <-globalTimeout.Done():
 					return
 				case m := <-senderCh:
-					fmt.Printf("ID: #%d, Elapsed: %.3f, goodput: %f, throughput: %f (MinRTT: %d)\n", streamID, time.Since(globalStartTime).Seconds(),
+					fmt.Printf("(c2s) ID: #%d, Elapsed: %.3f\n", streamID, time.Since(globalStartTime).Seconds())
+					fmt.Printf("\tgoodput: %f, throughput: %f (MinRTT: %d)\n",
 						float64(m.Application.BytesReceived)/float64(m.ElapsedTime)*8,
 						float64(m.Network.BytesReceived)/float64(m.ElapsedTime)*8, m.TCPInfo.MinRTT)
-				case <-receiverCh:
-					// NOTHING
+					fmt.Printf("\tnetwork bytes read/written: %d/%d\n\tapplication bytes read/written: %d/%d\n",
+						m.Network.BytesReceived, m.Network.BytesSent,
+						m.Application.BytesReceived, m.Application.BytesSent)
+				case m := <-receiverCh:
+					fmt.Printf("(s2c) ID: #%d, Elapsed: %.3f\n", streamID, time.Since(globalStartTime).Seconds())
+					fmt.Printf("\tgoodput: %f, throughput: %f (MinRTT: %d)\n",
+						float64(m.Application.BytesReceived)/float64(m.ElapsedTime)*8,
+						float64(m.Network.BytesReceived)/float64(m.ElapsedTime)*8, m.TCPInfo.MinRTT)
+					fmt.Printf("\tnetwork bytes read/written: %d/%d\n\tapplication bytes read/written: %d/%d\n",
+						m.Network.BytesReceived, m.Network.BytesSent,
+						m.Application.BytesReceived, m.Application.BytesSent)
 				case err := <-errCh:
 					log.Print(err)
 				}
