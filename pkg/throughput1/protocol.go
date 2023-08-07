@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -44,9 +45,8 @@ type Protocol struct {
 	measurer Measurer
 	once     *sync.Once
 
-	// Application-level bytes sent/received. These only include the WebSocket
-	// payload bytes (both text and binary messages).
-	application model.ByteCounters
+	applicationBytesReceived *atomic.Int64
+	applicationBytesSent     *atomic.Int64
 }
 
 // New returns a new Protocol with the specified connection and every other
@@ -59,6 +59,9 @@ func New(conn *websocket.Conn) *Protocol {
 		rnd:      rand.New(rand.NewSource(time.Now().UnixMilli())),
 		measurer: &DefaultMeasurer{},
 		once:     &sync.Once{},
+
+		applicationBytesReceived: &atomic.Int64{},
+		applicationBytesSent:     &atomic.Int64{},
 	}
 }
 
@@ -159,7 +162,7 @@ func (p *Protocol) receiver(ctx context.Context,
 				errCh <- err
 				return
 			}
-			p.application.BytesReceived += size
+			p.applicationBytesReceived.Add(size)
 		}
 		if kind == websocket.TextMessage {
 			data, err := io.ReadAll(reader)
@@ -167,7 +170,7 @@ func (p *Protocol) receiver(ctx context.Context,
 				errCh <- err
 				return
 			}
-			p.application.BytesReceived += int64(len(data))
+			p.applicationBytesReceived.Add(int64(len(data)))
 			var m model.WireMeasurement
 			if err := json.Unmarshal(data, &m); err != nil {
 				errCh <- err
@@ -192,7 +195,10 @@ func (p *Protocol) sendCounterflow(ctx context.Context,
 				wm = p.createWireMeasurement(ctx)
 			})
 			wm.Measurement = m
-			wm.Application = p.application
+			wm.Application = model.ByteCounters{
+				BytesSent:     p.applicationBytesSent.Load(),
+				BytesReceived: p.applicationBytesReceived.Load(),
+			}
 			// Encode as JSON separately so we can read the message size before
 			// sending.
 			jsonwm, err := json.Marshal(wm)
@@ -208,7 +214,7 @@ func (p *Protocol) sendCounterflow(ctx context.Context,
 				errCh <- err
 				return
 			}
-			p.application.BytesSent += int64(len(jsonwm))
+			p.applicationBytesSent.Add(int64(len(jsonwm)))
 
 			// This send is non-blocking in case there is no one to read the
 			// Measurement message and the channel's buffer is full.
@@ -245,7 +251,10 @@ func (p *Protocol) sender(ctx context.Context, measurerCh <-chan model.Measureme
 				wm = p.createWireMeasurement(ctx)
 			})
 			wm.Measurement = m
-			wm.Application = p.application
+			wm.Application = model.ByteCounters{
+				BytesReceived: p.applicationBytesReceived.Load(),
+				BytesSent:     p.applicationBytesSent.Load(),
+			}
 			// Encode as JSON separately so we can read the message size before
 			// sending.
 			jsonwm, err := json.Marshal(wm)
@@ -261,7 +270,7 @@ func (p *Protocol) sender(ctx context.Context, measurerCh <-chan model.Measureme
 				errCh <- err
 				return
 			}
-			p.application.BytesSent += int64(len(jsonwm))
+			p.applicationBytesSent.Add(int64(len(jsonwm)))
 
 			// This send is non-blocking in case there is no one to read the
 			// Measurement message and the channel's buffer is full.
@@ -276,14 +285,14 @@ func (p *Protocol) sender(ctx context.Context, measurerCh <-chan model.Measureme
 				errCh <- err
 				return
 			}
-			p.application.BytesSent += int64(size)
+			p.applicationBytesSent.Add(int64(size))
 
 			// Determine whether it's time to scale the message size.
 			if size >= spec.MaxScaledMessageSize {
 				continue
 			}
 
-			if size > int(p.application.BytesSent)/spec.ScalingFraction {
+			if size > int(p.applicationBytesSent.Load())/spec.ScalingFraction {
 				continue
 			}
 
@@ -309,7 +318,7 @@ func (p *Protocol) close(ctx context.Context) {
 		return
 	}
 	// The closing message is part of the measurement and added to bytesSent.
-	p.application.BytesSent += int64(len(msg))
+	p.applicationBytesSent.Add(int64(len(msg)))
 
 	log.Printf("Close message sent (ctx: %p)", ctx)
 }
