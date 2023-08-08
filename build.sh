@@ -6,7 +6,7 @@ VERSION=$(git describe --tags)
 versionflags="-X github.com/m-lab/msak/pkg/version.Version=$VERSION"
 
 COMMIT=$(git log -1 --format=%h)
-versionflags="-X github.com/m-lab/go/prometheusx.GitShortCommit=${COMMIT}"
+versionflags="${versionflags} -X github.com/m-lab/go/prometheusx.GitShortCommit=${COMMIT}"
 
 go build -v \
     -tags netgo \
