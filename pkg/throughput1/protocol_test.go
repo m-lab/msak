@@ -121,8 +121,10 @@ func TestProtocol_Download(t *testing.T) {
 		case <-context.Background().Done():
 			return
 		case m := <-senderCh:
-			fmt.Printf("senderCh BytesReceived: %d, BytesSent: %d\n", m.BytesReceived, m.BytesSent)
-			fmt.Printf("senderCh Goodput: %f Mb/s\n", float64(m.BytesReceived)/float64(time.Since(start).Microseconds())*8)
+			fmt.Printf("senderCh Network.BytesReceived: %d, Network.BytesSent: %d\n",
+				m.Network.BytesReceived, m.Network.BytesSent)
+			fmt.Printf("senderCh Network throughput: %f Mb/s\n",
+				float64(m.Network.BytesReceived)/float64(time.Since(start).Microseconds())*8)
 		case <-receiverCh:
 
 		case err := <-errCh:

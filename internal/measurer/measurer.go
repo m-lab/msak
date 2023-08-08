@@ -96,10 +96,12 @@ func (m *throughput1Measurer) measure(ctx context.Context) {
 	case <-ctx.Done():
 		// NOTHING
 	case m.dstChan <- model.Measurement{
-		ElapsedTime:   time.Since(m.startTime).Microseconds(),
-		BytesSent:     int64(totalWritten) - m.bytesWrittenAtStart,
-		BytesReceived: int64(totalRead) - m.bytesReadAtStart,
-		BBRInfo:       &bbrInfo,
+		ElapsedTime: time.Since(m.startTime).Microseconds(),
+		Network: model.ByteCounters{
+			BytesSent:     int64(totalWritten) - m.bytesWrittenAtStart,
+			BytesReceived: int64(totalRead) - m.bytesReadAtStart,
+		},
+		BBRInfo: &bbrInfo,
 		TCPInfo: &model.TCPInfo{
 			LinuxTCPInfo: tcpInfo,
 			ElapsedTime:  time.Since(m.connInfo.AcceptTime()).Microseconds(),

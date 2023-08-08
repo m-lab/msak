@@ -35,7 +35,7 @@ func TestNdt8Measurer_Start(t *testing.T) {
 	select {
 	case m := <-mchan:
 		fmt.Println("received measurement")
-		if m.BytesSent != 4 {
+		if m.Network.BytesSent != 4 {
 			t.Errorf("invalid byte counter value")
 		}
 	case <-time.After(1 * time.Second):
