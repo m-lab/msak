@@ -16,6 +16,7 @@ import (
 	"github.com/m-lab/msak/internal/persistence"
 	"github.com/m-lab/msak/pkg/throughput1"
 	"github.com/m-lab/msak/pkg/throughput1/model"
+	"github.com/m-lab/msak/pkg/version"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
@@ -183,7 +184,7 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 		Client:         wsConn.UnderlyingConn().RemoteAddr().String(),
 		Direction:      string(kind),
 		GitShortCommit: prometheusx.GitShortCommit,
-		Version:        "v0.0.1",
+		Version:        version.Version,
 		ClientMetadata: metadata,
 		ClientOptions:  clientOptions,
 	}

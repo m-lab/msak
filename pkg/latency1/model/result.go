@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/m-lab/go/prometheusx"
+	"github.com/m-lab/msak/pkg/version"
 )
 
 // LatencyPacket is the payload of a latency measurement UDP packet.
@@ -151,7 +152,7 @@ func (s *Session) Archive() *ArchivalData {
 	return &ArchivalData{
 		ID:              s.UUID,
 		GitShortCommit:  prometheusx.GitShortCommit,
-		Version:         "TODO",
+		Version:         version.Version,
 		Client:          s.Client,
 		Server:          s.Server,
 		StartTime:       s.StartTime,
