@@ -56,7 +56,8 @@ func stats(result model.Summary) (int, float64, int, float64) {
 		}
 		sum += v.RTT
 	}
-	return min, float64(sum) / float64(len(result.RoundTrips)), max, 1 - float64(result.PacketsReceived)/float64(result.PacketsSent)
+	return min, float64(sum) / float64(len(result.RoundTrips)),
+		max, 1 - float64(result.PacketsReceived)/float64(result.PacketsSent)
 }
 
 func runMeasurement(authorizeURL, resultURL *url.URL, kickoff []byte) {
@@ -80,13 +81,14 @@ func runMeasurement(authorizeURL, resultURL *url.URL, kickoff []byte) {
 			fmt.Printf("read error: %v\n", err)
 			break
 		}
-		fmt.Printf("received: %s\n", string(recvBuf[:n]))
 		_, err = conn.Write(recvBuf[:n])
 		if err != nil {
 			fmt.Printf("write error: %v\n", err)
 			break
 		}
+		fmt.Printf(".")
 	}
+	fmt.Println()
 
 	// Get results.
 	resp, err := http.Get(resultURL.String())
@@ -107,7 +109,8 @@ func runMeasurement(authorizeURL, resultURL *url.URL, kickoff []byte) {
 		return
 	}
 	min, avg, max, loss := stats(result)
-	fmt.Printf("rtt min/avg/max: %.3f/%.3f/%.3f ms, loss: %.1f\n", float64(min)/1000, avg/1000, float64(max)/1000, loss)
+	fmt.Printf("rtt min/avg/max: %.3f/%.3f/%.3f ms, loss: %.1f\n",
+		float64(min)/1000, avg/1000, float64(max)/1000, loss)
 }
 
 func main() {
