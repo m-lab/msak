@@ -43,10 +43,10 @@ type Protocol struct {
 	connInfo netx.ConnInfo
 	rnd      *rand.Rand
 	measurer Measurer
-	once     *sync.Once
+	once     sync.Once
 
-	applicationBytesReceived *atomic.Int64
-	applicationBytesSent     *atomic.Int64
+	applicationBytesReceived atomic.Int64
+	applicationBytesSent     atomic.Int64
 }
 
 // New returns a new Protocol with the specified connection and every other
@@ -58,10 +58,6 @@ func New(conn *websocket.Conn) *Protocol {
 		// Seed randomness source with the current time.
 		rnd:      rand.New(rand.NewSource(time.Now().UnixMilli())),
 		measurer: &DefaultMeasurer{},
-		once:     &sync.Once{},
-
-		applicationBytesReceived: &atomic.Int64{},
-		applicationBytesSent:     &atomic.Int64{},
 	}
 }
 
