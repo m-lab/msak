@@ -15,8 +15,8 @@ WORKDIR /msak
 COPY --from=build /msak/msak-server /msak/
 COPY --from=build /msak/generate-schema /msak/
 
-# Generate msak's JSON schema.
-RUN /msak/generate-schema -throughput1=/msak/throughput1.json
+# Generate msak's JSON schemas.
+RUN /msak/generate-schema -throughput1=/msak/throughput1.json -latency1=/msak/latency1.json
 
 # Verify that the msak-server binary can be run.
 RUN ./msak-server -h
