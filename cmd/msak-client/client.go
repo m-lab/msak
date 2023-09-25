@@ -14,6 +14,11 @@ import (
 )
 
 var (
+	clientName    = "msak-client-go"
+	clientVersion = version.Version
+)
+
+var (
 	flagServer   = flag.String("server", "", "Server address")
 	flagStreams  = flag.Int("streams", 2, "Number of streams")
 	flagCC       = flag.String("cc", "bbr", "Congestion control algorithm to use")
@@ -33,7 +38,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	cl := client.New("msak-client", version.Version)
+	cl := client.New(clientName, clientVersion)
 	cl.Dialer.TLSClientConfig = &tls.Config{
 		InsecureSkipVerify: *flagNoVerify,
 	}
