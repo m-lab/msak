@@ -42,7 +42,7 @@ type Locator interface {
 	Nearest(ctx context.Context, service string) ([]v2.Target, error)
 }
 
-type NDT8Client struct {
+type Throughput1Client struct {
 	ClientName    string
 	ClientVersion string
 
@@ -87,8 +87,8 @@ func makeUserAgent(clientName, clientVersion string) string {
 	return clientName + "/" + clientVersion + " " + libraryName + "/" + libraryVersion
 }
 
-func New(clientName, clientVersion string) *NDT8Client {
-	return &NDT8Client{
+func New(clientName, clientVersion string) *Throughput1Client {
+	return &Throughput1Client{
 		ClientName:    clientName,
 		ClientVersion: clientVersion,
 		Dialer: &websocket.Dialer{
@@ -110,7 +110,7 @@ func New(clientName, clientVersion string) *NDT8Client {
 	}
 }
 
-func (c *NDT8Client) connect(ctx context.Context, serviceURL *url.URL) (*websocket.Conn, error) {
+func (c *Throughput1Client) connect(ctx context.Context, serviceURL *url.URL) (*websocket.Conn, error) {
 	q := serviceURL.Query()
 	q.Set("streams", fmt.Sprint(c.NumStreams))
 	q.Set("cc", c.CongestionControl)
@@ -133,7 +133,7 @@ func (c *NDT8Client) connect(ctx context.Context, serviceURL *url.URL) (*websock
 // If it's the first time we're calling this function, it contacts the Locate
 // API. Subsequently, it returns the next URL from the cache.
 // If there are no more URLs to try, it returns an error.
-func (c *NDT8Client) nextURLFromLocate(ctx context.Context, p string) (string, error) {
+func (c *Throughput1Client) nextURLFromLocate(ctx context.Context, p string) (string, error) {
 	if len(c.targets) == 0 {
 		targets, err := c.Locate.Nearest(ctx, "msak/throughput1")
 		if err != nil {
@@ -152,7 +152,7 @@ func (c *NDT8Client) nextURLFromLocate(ctx context.Context, p string) (string, e
 	return "", ErrNoTargets
 }
 
-func (c *NDT8Client) start(ctx context.Context, subtest spec.SubtestKind) error {
+func (c *Throughput1Client) start(ctx context.Context, subtest spec.SubtestKind) error {
 	// Find the URL to use for this measurement.
 	var mURL *url.URL
 	// If the server has been provided, use it and use default paths based on
@@ -258,7 +258,7 @@ func (c *NDT8Client) start(ctx context.Context, subtest spec.SubtestKind) error 
 	return nil
 }
 
-func (c *NDT8Client) emitResults(streamID int, m model.WireMeasurement,
+func (c *Throughput1Client) emitResults(streamID int, m model.WireMeasurement,
 	globalStartTime time.Time, applicationBytes map[int][]int64) {
 	c.Emitter.OnMeasurement(streamID, m)
 	elapsed := time.Since(globalStartTime)
@@ -286,14 +286,14 @@ func (c *NDT8Client) emitResults(streamID int, m model.WireMeasurement,
 	c.Emitter.OnResult(result)
 }
 
-func (c *NDT8Client) Download(ctx context.Context) {
+func (c *Throughput1Client) Download(ctx context.Context) {
 	err := c.start(ctx, spec.SubtestDownload)
 	if err != nil {
 		log.Println(err)
 	}
 }
 
-func (c *NDT8Client) Upload(ctx context.Context) {
+func (c *Throughput1Client) Upload(ctx context.Context) {
 	err := c.start(ctx, spec.SubtestUpload)
 	if err != nil {
 		log.Println(err)
