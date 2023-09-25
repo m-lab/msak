@@ -61,12 +61,28 @@ type NDT8Client struct {
 	CongestionControl string
 	MeasurementID     string
 
-	OutputPath    string
-	ResultsByUUID map[string]*model.Throughput1Result
+	OutputPath string
+
+	Emitter Emitter
 
 	// targets and tIndex cache the results from the Locate API.
 	targets []v2.Target
 	tIndex  map[string]int
+}
+
+type Result struct {
+	Goodput    float64
+	Throughput float64
+	Elapsed    time.Duration
+	MinRTT     uint32
+
+	BytesRead    uint64
+	BytesWritten uint64
+}
+
+type StreamResult struct {
+	Result
+	StreamID int
 }
 
 // makeUserAgent creates the user agent string
@@ -88,12 +104,12 @@ func New(clientName, clientVersion string) *NDT8Client {
 				return netx.FromTCPConn(conn.(*net.TCPConn))
 			},
 		},
-		ResultsByUUID: make(map[string]*model.Throughput1Result),
-		Scheme:        "wss",
+		Scheme: "wss",
 		Locate: locate.NewClient(
 			makeUserAgent(clientName, clientVersion),
 		),
-		tIndex: map[string]int{},
+		Emitter: &HumanReadable{debug: true},
+		tIndex:  map[string]int{},
 	}
 }
 
@@ -112,7 +128,6 @@ func (c *NDT8Client) connect(ctx context.Context, serviceURL *url.URL) (*websock
 	headers := http.Header{}
 	headers.Add("Sec-WebSocket-Protocol", spec.SecWebSocketProtocol)
 	headers.Add("User-Agent", makeUserAgent(c.ClientName, c.ClientVersion))
-	log.Printf("Connecting to %s...", serviceURL.String())
 	conn, _, err := c.Dialer.DialContext(ctx, serviceURL.String(), headers)
 	return conn, err
 }
@@ -146,7 +161,7 @@ func (c *NDT8Client) start(ctx context.Context, subtest spec.SubtestKind) error 
 	// If the server has been provided, use it and use default paths based on
 	// the subtest kind (download/upload).
 	if c.Server != "" {
-		log.Print("using server ", c.Server)
+		c.Emitter.OnDebug(fmt.Sprintf("using server provided via flags %s", c.Server))
 		path := getPathForSubtest(subtest)
 		mURL = &url.URL{
 			Scheme: c.Scheme,
@@ -160,7 +175,7 @@ func (c *NDT8Client) start(ctx context.Context, subtest spec.SubtestKind) error 
 
 	// If a service URL was provided, use it as-is.
 	if c.ServiceURL != nil {
-		log.Print("using service url ", c.ServiceURL.String())
+		c.Emitter.OnDebug(fmt.Sprintf("using service url provided via flags %s", c.ServiceURL.String()))
 		// Override scheme to match the provided service url.
 		c.Scheme = c.ServiceURL.Scheme
 		mURL = c.ServiceURL
@@ -185,73 +200,54 @@ func (c *NDT8Client) start(ctx context.Context, subtest spec.SubtestKind) error 
 	defer cancel()
 
 	globalStartTime := time.Now()
+	applicationBytes := map[int][]int64{}
+
+	// Main client loop. Spawns one goroutine per stream requested.
 	for i := 0; i < c.NumStreams; i++ {
 		streamID := i
 		wg.Add(1)
 		measurements := make(chan model.WireMeasurement)
-		result := &model.Throughput1Result{
-			MeasurementID: c.MeasurementID,
-			Direction:     string(subtest),
-		}
 
 		go func() {
 			defer wg.Done()
 
 			// Connect to mURL.
+			c.Emitter.OnStart(mURL.Host, subtest)
 			conn, err := c.connect(ctx, mURL)
 			if err != nil {
-				log.Print(err)
+				c.Emitter.OnError(err)
 				close(measurements)
 				return
 			}
-
-			netxConn := netx.ToConnInfo(conn.UnderlyingConn())
-
-			// To store measurement results we use a map associating the
-			// TCP flow's unique identifier to the corresponding results.
-			uuid := netxConn.UUID()
-
-			result.UUID = uuid
-			result.StartTime = time.Now().UTC()
-			c.ResultsByUUID[uuid] = result
-
-			defer func() {
-				result.EndTime = time.Now().UTC()
-			}()
+			c.Emitter.OnConnect(mURL.String())
 
 			proto := throughput1.New(conn)
 
-			var senderCh, receiverCh <-chan model.WireMeasurement
+			var clientCh, serverCh <-chan model.WireMeasurement
 			var errCh <-chan error
 			switch subtest {
 			case spec.SubtestDownload:
-				senderCh, receiverCh, errCh = proto.ReceiverLoop(globalTimeout)
+				clientCh, serverCh, errCh = proto.ReceiverLoop(globalTimeout)
 			case spec.SubtestUpload:
-				senderCh, receiverCh, errCh = proto.SenderLoop(globalTimeout)
+				clientCh, serverCh, errCh = proto.SenderLoop(globalTimeout)
 			}
 
 			for {
 				select {
 				case <-globalTimeout.Done():
 					return
-				case m := <-senderCh:
-					fmt.Printf("(c2s) ID: #%d, Elapsed: %.3f\n", streamID, time.Since(globalStartTime).Seconds())
-					fmt.Printf("\tgoodput: %f, throughput: %f (MinRTT: %d)\n",
-						float64(m.Application.BytesReceived)/float64(m.ElapsedTime)*8,
-						float64(m.Network.BytesReceived)/float64(m.ElapsedTime)*8, m.TCPInfo.MinRTT)
-					fmt.Printf("\tnetwork bytes read/written: %d/%d\n\tapplication bytes read/written: %d/%d\n",
-						m.Network.BytesReceived, m.Network.BytesSent,
-						m.Application.BytesReceived, m.Application.BytesSent)
-				case m := <-receiverCh:
-					fmt.Printf("(s2c) ID: #%d, Elapsed: %.3f\n", streamID, time.Since(globalStartTime).Seconds())
-					fmt.Printf("\tgoodput: %f, throughput: %f (MinRTT: %d)\n",
-						float64(m.Application.BytesReceived)/float64(m.ElapsedTime)*8,
-						float64(m.Network.BytesReceived)/float64(m.ElapsedTime)*8, m.TCPInfo.MinRTT)
-					fmt.Printf("\tnetwork bytes read/written: %d/%d\n\tapplication bytes read/written: %d/%d\n",
-						m.Network.BytesReceived, m.Network.BytesSent,
-						m.Application.BytesReceived, m.Application.BytesSent)
+				case m := <-clientCh:
+					if subtest != spec.SubtestDownload {
+						continue
+					}
+					c.emitResults(streamID, m, globalStartTime, applicationBytes)
+				case m := <-serverCh:
+					if subtest != spec.SubtestUpload {
+						continue
+					}
+					c.emitResults(streamID, m, globalStartTime, applicationBytes)
 				case err := <-errCh:
-					log.Print(err)
+					c.Emitter.OnError(err)
 				}
 			}
 		}()
@@ -262,6 +258,34 @@ func (c *NDT8Client) start(ctx context.Context, subtest spec.SubtestKind) error 
 	wg.Wait()
 
 	return nil
+}
+
+func (c *NDT8Client) emitResults(streamID int, m model.WireMeasurement,
+	globalStartTime time.Time, applicationBytes map[int][]int64) {
+	c.Emitter.OnMeasurement(streamID, m)
+	elapsed := time.Since(globalStartTime)
+	streamResult := StreamResult{
+		StreamID: streamID,
+		Result: Result{
+			Elapsed:    elapsed,
+			Goodput:    float64(m.Application.BytesReceived) / float64(m.ElapsedTime) * 8,
+			Throughput: float64(m.Network.BytesReceived) / float64(m.ElapsedTime) * 8,
+			MinRTT:     m.TCPInfo.MinRTT,
+		},
+	}
+	c.Emitter.OnStreamResult(streamResult)
+
+	applicationBytes[streamID] = append(applicationBytes[streamID], m.Application.BytesReceived)
+
+	var sum int64
+	for _, bytes := range applicationBytes {
+		sum += bytes[len(bytes)-1]
+	}
+	result := Result{
+		Elapsed: elapsed,
+		Goodput: float64(sum) / float64(elapsed.Microseconds()) * 8,
+	}
+	c.Emitter.OnResult(result)
 }
 
 func (c *NDT8Client) Download(ctx context.Context) {
