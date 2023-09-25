@@ -19,6 +19,7 @@ import (
 	"github.com/m-lab/msak/pkg/throughput1"
 	"github.com/m-lab/msak/pkg/throughput1/model"
 	"github.com/m-lab/msak/pkg/throughput1/spec"
+	"github.com/m-lab/msak/pkg/version"
 )
 
 const (
@@ -29,13 +30,14 @@ const (
 	// DefaultStreams is the default number of streams for a new client.
 	DefaultStreams = 5
 
-	libraryName    = "msak-client"
-	libraryVersion = "0.0.1"
+	libraryName = "msak-client"
 )
 
 var (
 	// ErrNoTargets is returned if all Locate targets have been tried.
 	ErrNoTargets = errors.New("no targets available")
+
+	libraryVersion = version.Version
 )
 
 type Locator interface {

@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/m-lab/msak/pkg/client"
+	"github.com/m-lab/msak/pkg/version"
 )
 
 var (
@@ -32,7 +33,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	cl := client.New("msak-client", "")
+	cl := client.New("msak-client", version.Version)
 	cl.Dialer.TLSClientConfig = &tls.Config{
 		InsecureSkipVerify: *flagNoVerify,
 	}
