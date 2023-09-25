@@ -75,9 +75,6 @@ type Result struct {
 	Throughput float64
 	Elapsed    time.Duration
 	MinRTT     uint32
-
-	BytesRead    uint64
-	BytesWritten uint64
 }
 
 type StreamResult struct {
