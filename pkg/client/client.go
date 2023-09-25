@@ -108,7 +108,7 @@ func New(clientName, clientVersion string) *NDT8Client {
 		Locate: locate.NewClient(
 			makeUserAgent(clientName, clientVersion),
 		),
-		Emitter: &HumanReadable{debug: true},
+		Emitter: &HumanReadable{Debug: false},
 		tIndex:  map[string]int{},
 	}
 }
@@ -235,6 +235,7 @@ func (c *NDT8Client) start(ctx context.Context, subtest spec.SubtestKind) error 
 			for {
 				select {
 				case <-globalTimeout.Done():
+					c.Emitter.OnComplete(streamID, mURL.Host)
 					return
 				case m := <-clientCh:
 					if subtest != spec.SubtestDownload {

@@ -14,48 +14,54 @@ type Emitter interface {
 	OnResult(Result)
 	OnStreamResult(StreamResult)
 	OnError(err error)
-	OnComplete(server string)
+	OnComplete(streamID int, server string)
 	OnDebug(msg string)
 }
 
 type HumanReadable struct {
-	debug bool
+	Debug bool
 }
 
-// OnResult implements Emitter.
+// OnResult prints the aggregate result.
 func (*HumanReadable) OnResult(r Result) {
 	fmt.Printf("Elapsed: %.2fs, Goodput: %f, MinRTT: %d\n", r.Elapsed.Seconds(),
 		r.Goodput, r.MinRTT)
 }
 
-// OnStreamResult implements Emitter.
+// OnStreamResult prints the per-stream result.
 func (*HumanReadable) OnStreamResult(sr StreamResult) {
 	fmt.Printf("\tStream #%d - gp %f, tp: %f, minrtt: %d\n", sr.StreamID,
 		sr.Goodput, sr.Throughput, sr.MinRTT)
 }
 
+// OnStart is called when the stream starts.
 func (e *HumanReadable) OnStart(server string, kind spec.SubtestKind) {
 	fmt.Printf("Starting %s stream (server: %s)\n", kind, server)
 }
 
+// OnConnect is called when the connection to the server is established.
 func (e *HumanReadable) OnConnect(server string) {
 	fmt.Printf("Connected to %s\n", server)
 }
 
+// OnMeasurement is called on received Measurement objects.
 func (e *HumanReadable) OnMeasurement(id int, m model.WireMeasurement) {
-	// NOTHING - don't print individual measurement objects.
+	// NOTHING - don't print individual measurement objects in this Emitter.
 }
 
+// OnError is called on errors.
 func (e *HumanReadable) OnError(err error) {
 	fmt.Println(err)
 }
 
-func (e *HumanReadable) OnComplete(server string) {
-	fmt.Printf("Stream complete (server %s)\n", server)
+// OnComplete is called after a stream completes.
+func (e *HumanReadable) OnComplete(streamID int, server string) {
+	fmt.Printf("Stream %d complete (server %s)\n", streamID, server)
 }
 
+// OnDebug is called to print debug information.
 func (e *HumanReadable) OnDebug(msg string) {
-	if e.debug {
+	if e.Debug {
 		fmt.Printf("DEBUG: %s\n", msg)
 	}
 }

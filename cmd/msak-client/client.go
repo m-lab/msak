@@ -21,6 +21,7 @@ var (
 	flagScheme   = flag.String("scheme", "ws", "Websocket scheme (wss or ws)")
 	flagMID      = flag.String("mid", uuid.NewString(), "Measurement ID to use")
 	flagNoVerify = flag.Bool("no-verify", false, "Skip TLS certificate verification")
+	flagDebug    = flag.Bool("debug", false, "Enable debug logging")
 )
 
 func main() {
@@ -43,5 +44,10 @@ func main() {
 	cl.Length = *flagDuration
 	cl.Delay = *flagDelay
 
+	cl.Emitter = &client.HumanReadable{
+		Debug: *flagDebug,
+	}
+
 	cl.Download(context.Background())
+	cl.Upload(context.Background())
 }
