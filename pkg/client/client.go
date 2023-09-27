@@ -94,6 +94,9 @@ type Throughput1Client struct {
 	// targets and tIndex cache the results from the Locate API.
 	targets []v2.Target
 	tIndex  map[string]int
+
+	recvByteCounters      map[int][]int64
+	recvByteCountersMutex sync.Mutex
 }
 
 // Result contains the aggregate metrics collected during the test.
@@ -137,7 +140,9 @@ func New(clientName, clientVersion string) *Throughput1Client {
 			makeUserAgent(clientName, clientVersion),
 		),
 		Emitter: &HumanReadable{Debug: false},
-		tIndex:  map[string]int{},
+
+		tIndex:           map[string]int{},
+		recvByteCounters: map[int][]int64{},
 	}
 }
 
@@ -228,7 +233,6 @@ func (c *Throughput1Client) start(ctx context.Context, subtest spec.SubtestKind)
 	defer cancel()
 
 	globalStartTime := time.Now()
-	applicationBytes := map[int][]int64{}
 
 	// Main client loop. Spawns one goroutine per stream.
 	for i := 0; i < c.NumStreams; i++ {
@@ -239,7 +243,7 @@ func (c *Throughput1Client) start(ctx context.Context, subtest spec.SubtestKind)
 			defer wg.Done()
 
 			// Run a single stream.
-			err := c.runStream(globalTimeout, streamID, mURL, subtest, globalStartTime, applicationBytes)
+			err := c.runStream(globalTimeout, streamID, mURL, subtest, globalStartTime)
 			if err != nil {
 				c.Emitter.OnError(err)
 			}
@@ -254,7 +258,7 @@ func (c *Throughput1Client) start(ctx context.Context, subtest spec.SubtestKind)
 }
 
 func (c *Throughput1Client) runStream(ctx context.Context, streamID int, mURL *url.URL,
-	subtest spec.SubtestKind, globalStartTime time.Time, applicationBytes map[int][]int64) error {
+	subtest spec.SubtestKind, globalStartTime time.Time) error {
 
 	measurements := make(chan model.WireMeasurement)
 
@@ -287,12 +291,12 @@ func (c *Throughput1Client) runStream(ctx context.Context, streamID int, mURL *u
 			if subtest != spec.SubtestDownload {
 				continue
 			}
-			c.emitResults(streamID, m, globalStartTime, applicationBytes)
+			c.emitResults(streamID, m, globalStartTime)
 		case m := <-serverCh:
 			if subtest != spec.SubtestUpload {
 				continue
 			}
-			c.emitResults(streamID, m, globalStartTime, applicationBytes)
+			c.emitResults(streamID, m, globalStartTime)
 		case err := <-errCh:
 			return err
 		}
@@ -300,7 +304,7 @@ func (c *Throughput1Client) runStream(ctx context.Context, streamID int, mURL *u
 }
 
 func (c *Throughput1Client) emitResults(streamID int, m model.WireMeasurement,
-	globalStartTime time.Time, applicationBytes map[int][]int64) {
+	globalStartTime time.Time) {
 	c.Emitter.OnMeasurement(streamID, m)
 	elapsed := time.Since(globalStartTime)
 	streamResult := StreamResult{
@@ -314,12 +318,18 @@ func (c *Throughput1Client) emitResults(streamID int, m model.WireMeasurement,
 	}
 	c.Emitter.OnStreamResult(streamResult)
 
-	applicationBytes[streamID] = append(applicationBytes[streamID], m.Application.BytesReceived)
-
+	// Append the value of the BytesReceived counter to the corresponding recvByteCounters map entry
+	// for the current streamID.
+	//
+	// Note: The recvByteCounters map may be accessed by multiple goroutines.
+	c.recvByteCountersMutex.Lock()
+	c.recvByteCounters[streamID] = append(c.recvByteCounters[streamID], m.Application.BytesReceived)
 	var sum int64
-	for _, bytes := range applicationBytes {
+	for _, bytes := range c.recvByteCounters {
 		sum += bytes[len(bytes)-1]
 	}
+	c.recvByteCountersMutex.Unlock()
+
 	result := Result{
 		Elapsed: elapsed,
 		Goodput: float64(sum) / float64(elapsed.Microseconds()) * 8,
