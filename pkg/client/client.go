@@ -327,6 +327,7 @@ func (c *Throughput1Client) emitResults(streamID int, m model.WireMeasurement,
 	c.Emitter.OnResult(result)
 }
 
+// Download runs a download test using the settings configured for this client.
 func (c *Throughput1Client) Download(ctx context.Context) {
 	err := c.start(ctx, spec.SubtestDownload)
 	if err != nil {
@@ -334,6 +335,7 @@ func (c *Throughput1Client) Download(ctx context.Context) {
 	}
 }
 
+// Upload runs an upload test using the settings configured for this client.
 func (c *Throughput1Client) Upload(ctx context.Context) {
 	err := c.start(ctx, spec.SubtestUpload)
 	if err != nil {
