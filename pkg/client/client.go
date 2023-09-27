@@ -30,6 +30,9 @@ const (
 	// DefaultStreams is the default number of streams for a new client.
 	DefaultStreams = 5
 
+	// DefaultLength is the default test duration for a new client.
+	DefaultLength = 5 * time.Second
+
 	libraryName = "msak-client"
 )
 
@@ -40,31 +43,52 @@ var (
 	libraryVersion = version.Version
 )
 
+// Locator is an interface used to get a list of available servers to test against.
 type Locator interface {
 	Nearest(ctx context.Context, service string) ([]v2.Target, error)
 }
 
+// Throughput1Client is a client for the throughput1 protocol.
 type Throughput1Client struct {
-	ClientName    string
+	// ClientName is the name of the client as sent to the server as part of the user-agent.
+	ClientName string
+	// ClientVersion is the version of the client as sent to the server as part of the user-agent.
 	ClientVersion string
 
+	// Dialer is the websocket.Dialer used by the client.
 	Dialer *websocket.Dialer
 
-	Server     string
+	// Server is the server to connect to. If both Server and ServiceURL are empty,
+	// the server is obtained by querying the configured Locator.
+	Server string
+
+	// ServiceURL is the full URL to connect to. If both Server and ServiceURL are empty,
+	// the server is obtained by querying the configured Locator.
 	ServiceURL *url.URL
 
+	// Locate is the Locator used to obtain the server to connect to.
 	Locate Locator
 
+	// Scheme is the WebSocket scheme used to connect to the server (ws or wss).
 	Scheme string
 
-	NumStreams        int
-	Length            time.Duration
-	Delay             time.Duration
+	// NumStreams is the number of streams that will be spawned by this client to run a
+	// download or an upload test.
+	NumStreams int
+
+	// Length is the duration of the test.
+	Length time.Duration
+
+	// Delay is the delay between each stream.
+	Delay time.Duration
+
+	// CongestionControl is the congestion control algorithm to request from the server.
 	CongestionControl string
-	MeasurementID     string
 
-	OutputPath string
+	// MeasurementID is the manually configured Measurement ID ("mid") to pass to the server.
+	MeasurementID string
 
+	// Emitter is the emitter used to emit results.
 	Emitter Emitter
 
 	// targets and tIndex cache the results from the Locate API.
@@ -72,6 +96,7 @@ type Throughput1Client struct {
 	tIndex  map[string]int
 }
 
+// Result contains the aggregate metrics collected during the test.
 type Result struct {
 	Goodput    float64
 	Throughput float64
@@ -79,16 +104,18 @@ type Result struct {
 	MinRTT     uint32
 }
 
+// StreamResult contains the per-stream metrics collected during the test.
 type StreamResult struct {
 	Result
 	StreamID int
 }
 
-// makeUserAgent creates the user agent string
+// makeUserAgent creates the user agent string.
 func makeUserAgent(clientName, clientVersion string) string {
 	return clientName + "/" + clientVersion + " " + libraryName + "/" + libraryVersion
 }
 
+// New returns a new Throughput1Client with the provided client name and version.
 func New(clientName, clientVersion string) *Throughput1Client {
 	return &Throughput1Client{
 		ClientName:    clientName,
@@ -103,7 +130,9 @@ func New(clientName, clientVersion string) *Throughput1Client {
 				return netx.FromTCPConn(conn.(*net.TCPConn))
 			},
 		},
-		Scheme: "wss",
+		Scheme:     "wss",
+		NumStreams: DefaultStreams,
+		Length:     DefaultLength,
 		Locate: locate.NewClient(
 			makeUserAgent(clientName, clientVersion),
 		),
@@ -212,7 +241,7 @@ func (c *Throughput1Client) start(ctx context.Context, subtest spec.SubtestKind)
 
 			// Connect to mURL.
 			c.Emitter.OnStart(mURL.Host, subtest)
-			conn, err := c.connect(ctx, mURL)
+			conn, err := c.connect(globalTimeout, mURL)
 			if err != nil {
 				c.Emitter.OnError(err)
 				close(measurements)
