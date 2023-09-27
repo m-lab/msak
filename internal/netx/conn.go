@@ -33,6 +33,13 @@ type ConnInfo interface {
 	SaveUUID(context.Context) context.Context
 }
 
+// TCPLikeConn is a net.Conn with a File() method. This is useful for creating a
+// netx.Conn based on a custom TCPConn-like type - e.g. for testing.
+type TCPLikeConn interface {
+	net.Conn
+	File() (*os.File, error)
+}
+
 // ToConnInfo is a helper function to convert a net.Conn into a netx.ConnInfo.
 // It panics if netConn does not contain a type supporting ConnInfo.
 func ToConnInfo(netConn net.Conn) ConnInfo {
@@ -57,8 +64,9 @@ type Conn struct {
 	bytesWritten atomic.Uint64
 }
 
-func FromTCPConn(tcpConn *net.TCPConn) (*Conn, error) {
-	return fromTCPConn(tcpConn)
+// FromTCPLikeConn creates a netx.Conn from a TCPLikeConn.
+func FromTCPLikeConn(tcpConn TCPLikeConn) (*Conn, error) {
+	return fromTCPLikeConn(tcpConn)
 }
 
 // Read reads from the underlying net.Conn and updates the read bytes counter.
