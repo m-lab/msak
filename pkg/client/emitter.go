@@ -25,38 +25,38 @@ type HumanReadable struct {
 }
 
 // OnResult prints the aggregate result.
-func (*HumanReadable) OnResult(r Result) {
+func (HumanReadable) OnResult(r Result) {
 	fmt.Printf("Elapsed: %.2fs, Goodput: %f Mb/s, MinRTT: %d\n", r.Elapsed.Seconds(),
 		r.Goodput/1024/1024, r.MinRTT)
 }
 
 // OnStart is called when the stream starts.
-func (e *HumanReadable) OnStart(server string, kind spec.SubtestKind) {
+func (HumanReadable) OnStart(server string, kind spec.SubtestKind) {
 	fmt.Printf("Starting %s stream (server: %s)\n", kind, server)
 }
 
 // OnConnect is called when the connection to the server is established.
-func (e *HumanReadable) OnConnect(server string) {
+func (HumanReadable) OnConnect(server string) {
 	fmt.Printf("Connected to %s\n", server)
 }
 
 // OnMeasurement is called on received Measurement objects.
-func (e *HumanReadable) OnMeasurement(id int, m model.WireMeasurement) {
+func (HumanReadable) OnMeasurement(id int, m model.WireMeasurement) {
 	// NOTHING - don't print individual measurement objects in this Emitter.
 }
 
 // OnError is called on errors.
-func (e *HumanReadable) OnError(err error) {
+func (HumanReadable) OnError(err error) {
 	fmt.Println(err)
 }
 
 // OnComplete is called after a stream completes.
-func (e *HumanReadable) OnComplete(streamID int, server string) {
+func (HumanReadable) OnComplete(streamID int, server string) {
 	fmt.Printf("Stream %d complete (server %s)\n", streamID, server)
 }
 
 // OnDebug is called to print debug information.
-func (e *HumanReadable) OnDebug(msg string) {
+func (e HumanReadable) OnDebug(msg string) {
 	if e.Debug {
 		fmt.Printf("DEBUG: %s\n", msg)
 	}

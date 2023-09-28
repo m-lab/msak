@@ -58,38 +58,10 @@ type Throughput1Client struct {
 	// ClientVersion is the version of the client sent to the server as part of the user-agent.
 	ClientVersion string
 
-	// Dialer is the websocket.Dialer used by the client.
-	Dialer *websocket.Dialer
+	config ClientConfig
 
-	// Server is the server to connect to. If empty, the server is obtained by
-	// querying the configured Locator.
-	Server string
-
-	// Locate is the Locator used to obtain the server to connect to.
-	Locate Locator
-
-	// Scheme is the WebSocket scheme used to connect to the server (ws or wss).
-	Scheme string
-
-	// NumStreams is the number of streams that will be spawned by this client to run a
-	// download or an upload test.
-	NumStreams int
-
-	// Length is the duration of the test.
-	Length time.Duration
-
-	// Delay is the delay between each stream.
-	Delay time.Duration
-
-	// CongestionControl is the congestion control algorithm to request from the server.
-	CongestionControl string
-
-	// MeasurementID is the manually configured Measurement ID ("mid") to pass to the server.
-	MeasurementID string
-
-	// Emitter is the interface used to emit the results of the test. It can be overridden
-	// to provide a custom output.
-	Emitter Emitter
+	dialer  *websocket.Dialer
+	locator Locator
 
 	// targets and tIndex cache the results from the Locate API.
 	targets []v2.Target
@@ -118,12 +90,14 @@ func makeUserAgent(clientName, clientVersion string) string {
 	return clientName + "/" + clientVersion + " " + libraryName + "/" + libraryVersion
 }
 
-// New returns a new Throughput1Client with the provided client name and version.
-func New(clientName, clientVersion string) *Throughput1Client {
+// New returns a new Throughput1Client with the provided client name, version and config.
+func New(clientName, clientVersion string, config ClientConfig) *Throughput1Client {
 	return &Throughput1Client{
 		ClientName:    clientName,
 		ClientVersion: clientVersion,
-		Dialer: &websocket.Dialer{
+
+		config: config,
+		dialer: &websocket.Dialer{
 			HandshakeTimeout: DefaultWebSocketHandshakeTimeout,
 			NetDial: func(network, addr string) (net.Conn, error) {
 				conn, err := net.Dial(network, addr)
@@ -133,13 +107,8 @@ func New(clientName, clientVersion string) *Throughput1Client {
 				return netx.FromTCPConn(conn.(*net.TCPConn))
 			},
 		},
-		Scheme:     DefaultScheme,
-		NumStreams: DefaultStreams,
-		Length:     DefaultLength,
-		Locate: locate.NewClient(
-			makeUserAgent(clientName, clientVersion),
-		),
-		Emitter: &HumanReadable{Debug: false},
+
+		locator: locate.NewClient(makeUserAgent(clientName, clientVersion)),
 
 		tIndex:           map[string]int{},
 		recvByteCounters: map[int][]int64{},
@@ -148,9 +117,9 @@ func New(clientName, clientVersion string) *Throughput1Client {
 
 func (c *Throughput1Client) connect(ctx context.Context, serviceURL *url.URL) (*websocket.Conn, error) {
 	q := serviceURL.Query()
-	q.Set("streams", fmt.Sprint(c.NumStreams))
-	q.Set("cc", c.CongestionControl)
-	q.Set("duration", fmt.Sprintf("%d", c.Length.Milliseconds()))
+	q.Set("streams", fmt.Sprint(c.config.NumStreams))
+	q.Set("cc", c.config.CongestionControl)
+	q.Set("duration", fmt.Sprintf("%d", c.config.Length.Milliseconds()))
 	q.Set("client_arch", runtime.GOARCH)
 	q.Set("client_library_name", libraryName)
 	q.Set("client_library_version", libraryVersion)
@@ -161,7 +130,7 @@ func (c *Throughput1Client) connect(ctx context.Context, serviceURL *url.URL) (*
 	headers := http.Header{}
 	headers.Add("Sec-WebSocket-Protocol", spec.SecWebSocketProtocol)
 	headers.Add("User-Agent", makeUserAgent(c.ClientName, c.ClientVersion))
-	conn, _, err := c.Dialer.DialContext(ctx, serviceURL.String(), headers)
+	conn, _, err := c.dialer.DialContext(ctx, serviceURL.String(), headers)
 	return conn, err
 }
 
@@ -171,14 +140,14 @@ func (c *Throughput1Client) connect(ctx context.Context, serviceURL *url.URL) (*
 // If there are no more URLs to try, it returns an error.
 func (c *Throughput1Client) nextURLFromLocate(ctx context.Context, p string) (string, error) {
 	if len(c.targets) == 0 {
-		targets, err := c.Locate.Nearest(ctx, "msak/throughput1")
+		targets, err := c.locator.Nearest(ctx, "msak/throughput1")
 		if err != nil {
 			return "", err
 		}
 		// cache targets on success.
 		c.targets = targets
 	}
-	k := c.Scheme + "://" + p
+	k := c.config.Scheme + "://" + p
 	if c.tIndex[k] < len(c.targets) {
 		fmt.Println(c.targets[c.tIndex[k]].URLs)
 		r := c.targets[c.tIndex[k]].URLs[k]
@@ -193,22 +162,22 @@ func (c *Throughput1Client) start(ctx context.Context, subtest spec.SubtestKind)
 	var mURL *url.URL
 	// If the server has been provided, use it and use default paths based on
 	// the subtest kind (download/upload).
-	if c.Server != "" {
-		c.Emitter.OnDebug(fmt.Sprintf("using server provided via flags %s", c.Server))
+	if c.config.Server != "" {
+		c.config.Emitter.OnDebug(fmt.Sprintf("using server provided via flags %s", c.config.Server))
 		path := getPathForSubtest(subtest)
 		mURL = &url.URL{
-			Scheme: c.Scheme,
-			Host:   c.Server,
+			Scheme: c.config.Scheme,
+			Host:   c.config.Server,
 			Path:   path,
 		}
 		q := mURL.Query()
-		q.Set("mid", c.MeasurementID)
+		q.Set("mid", c.config.MeasurementID)
 		mURL.RawQuery = q.Encode()
 	}
 
 	// If no server has been provided, use the Locate API.
 	if mURL == nil {
-		c.Emitter.OnDebug("using locate")
+		c.config.Emitter.OnDebug("using locate")
 		urlStr, err := c.nextURLFromLocate(ctx, getPathForSubtest(subtest))
 		if err != nil {
 			return err
@@ -221,7 +190,7 @@ func (c *Throughput1Client) start(ctx context.Context, subtest spec.SubtestKind)
 	}
 
 	wg := &sync.WaitGroup{}
-	globalTimeout, cancel := context.WithTimeout(ctx, c.Length)
+	globalTimeout, cancel := context.WithTimeout(ctx, c.config.Length)
 	defer cancel()
 
 	// Reset the counters.
@@ -242,7 +211,7 @@ func (c *Throughput1Client) start(ctx context.Context, subtest spec.SubtestKind)
 	}()
 
 	// Main client loop. Spawns one goroutine per stream.
-	for i := 0; i < c.NumStreams; i++ {
+	for i := 0; i < c.config.NumStreams; i++ {
 		streamID := i
 		wg.Add(1)
 
@@ -252,11 +221,11 @@ func (c *Throughput1Client) start(ctx context.Context, subtest spec.SubtestKind)
 			// Run a single stream.
 			err := c.runStream(globalTimeout, streamID, mURL, subtest, globalStartTime)
 			if err != nil {
-				c.Emitter.OnError(err)
+				c.config.Emitter.OnError(err)
 			}
 		}()
 
-		time.Sleep(c.Delay)
+		time.Sleep(c.config.Delay)
 	}
 
 	wg.Wait()
@@ -269,14 +238,14 @@ func (c *Throughput1Client) runStream(ctx context.Context, streamID int, mURL *u
 
 	measurements := make(chan model.WireMeasurement)
 
-	c.Emitter.OnStart(mURL.Host, subtest)
+	c.config.Emitter.OnStart(mURL.Host, subtest)
 	conn, err := c.connect(ctx, mURL)
 	if err != nil {
-		c.Emitter.OnError(err)
+		c.config.Emitter.OnError(err)
 		close(measurements)
 		return err
 	}
-	c.Emitter.OnConnect(mURL.String())
+	c.config.Emitter.OnConnect(mURL.String())
 
 	proto := throughput1.New(conn)
 
@@ -292,15 +261,15 @@ func (c *Throughput1Client) runStream(ctx context.Context, streamID int, mURL *u
 	for {
 		select {
 		case <-ctx.Done():
-			c.Emitter.OnComplete(streamID, mURL.Host)
+			c.config.Emitter.OnComplete(streamID, mURL.Host)
 			return nil
 		case m := <-clientCh:
 			// If subtest is download, store the client-side measurement.
 			if subtest != spec.SubtestDownload {
 				continue
 			}
-			c.Emitter.OnMeasurement(streamID, m)
-			c.Emitter.OnDebug(fmt.Sprintf("Stream #%d - application r/w: %d/%d, network r/w: %d/%d",
+			c.config.Emitter.OnMeasurement(streamID, m)
+			c.config.Emitter.OnDebug(fmt.Sprintf("Stream #%d - application r/w: %d/%d, network r/w: %d/%d",
 				streamID, m.Application.BytesReceived, m.Application.BytesSent,
 				m.Network.BytesReceived, m.Network.BytesSent))
 			c.storeMeasurement(streamID, m)
@@ -309,8 +278,8 @@ func (c *Throughput1Client) runStream(ctx context.Context, streamID int, mURL *u
 			if subtest != spec.SubtestUpload {
 				continue
 			}
-			c.Emitter.OnMeasurement(streamID, m)
-			c.Emitter.OnDebug(fmt.Sprintf("#%d - application r/w: %d/%d, network r/w: %d/%d",
+			c.config.Emitter.OnMeasurement(streamID, m)
+			c.config.Emitter.OnDebug(fmt.Sprintf("#%d - application r/w: %d/%d, network r/w: %d/%d",
 				streamID, m.Application.BytesReceived, m.Application.BytesSent,
 				m.Network.BytesReceived, m.Network.BytesSent))
 			c.storeMeasurement(streamID, m)
@@ -348,7 +317,7 @@ func (c *Throughput1Client) emitResult(start time.Time) {
 		Goodput:    goodput,
 		Throughput: 0, // TODO
 	}
-	c.Emitter.OnResult(result)
+	c.config.Emitter.OnResult(result)
 }
 
 // Download runs a download test using the settings configured for this client.

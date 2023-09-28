@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
 	"flag"
 	"log"
 
@@ -36,21 +35,20 @@ func main() {
 		log.Fatal("Invalid configuration: please check streams, delay and duration and make sure they make sense.")
 	}
 
-	cl := client.New(clientName, clientVersion)
-	cl.Dialer.TLSClientConfig = &tls.Config{
-		InsecureSkipVerify: *flagNoVerify,
+	config := client.ClientConfig{
+		Server:            *flagServer,
+		Scheme:            *flagScheme,
+		NumStreams:        *flagStreams,
+		CongestionControl: *flagCC,
+		Delay:             *flagDelay,
+		Length:            *flagDuration,
+		MeasurementID:     *flagMID,
+		Emitter: client.HumanReadable{
+			Debug: *flagDebug,
+		},
 	}
-	cl.Server = *flagServer
-	cl.CongestionControl = *flagCC
-	cl.NumStreams = *flagStreams
-	cl.Scheme = *flagScheme
-	cl.MeasurementID = *flagMID
-	cl.Length = *flagDuration
-	cl.Delay = *flagDelay
 
-	cl.Emitter = &client.HumanReadable{
-		Debug: *flagDebug,
-	}
+	cl := client.New(clientName, clientVersion, config)
 
 	cl.Download(context.Background())
 	cl.Upload(context.Background())

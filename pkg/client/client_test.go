@@ -18,7 +18,7 @@ import (
 
 func TestNew(t *testing.T) {
 	t.Run("new clients have the expected name and version", func(t *testing.T) {
-		c := New("test", "v1.0.0")
+		c := New("test", "v1.0.0", ClientConfig{})
 		if c.ClientName != "test" || c.ClientVersion != "v1.0.0" {
 			t.Errorf("client.New() returned client with wrong name/version")
 		}
@@ -42,10 +42,11 @@ func setupTestServer(handler http.Handler) *httptest.Server {
 
 func TestNDT8Client_connect(t *testing.T) {
 
-	c := New("test", "version")
-	c.NumStreams = 3
-	c.CongestionControl = "cubic"
-	c.Length = 5 * time.Second
+	c := New("test", "version", ClientConfig{
+		NumStreams:        3,
+		CongestionControl: "cubic",
+		Length:            5 * time.Second,
+	})
 
 	t.Run("connect sends qs parameters and headers", func(t *testing.T) {
 		upgrader := websocket.Upgrader{}
@@ -63,7 +64,7 @@ func TestNDT8Client_connect(t *testing.T) {
 			expected := map[string]string{
 				"streams":                "3",
 				"cc":                     "cubic",
-				"duration":               fmt.Sprintf("%d", c.Length.Milliseconds()),
+				"duration":               fmt.Sprintf("%d", c.config.Length.Milliseconds()),
 				"client_arch":            runtime.GOARCH,
 				"client_library_name":    libraryName,
 				"client_library_version": libraryVersion,
