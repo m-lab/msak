@@ -308,7 +308,7 @@ func (c *Throughput1Client) runStream(ctx context.Context, streamID int, mURL *u
 				continue
 			}
 			c.Emitter.OnMeasurement(streamID, m)
-			c.Emitter.OnDebug(fmt.Sprintf("Stream #%d - application r/w: %d/%d, network r/w: %d/%d\n",
+			c.Emitter.OnDebug(fmt.Sprintf("Stream #%d - application r/w: %d/%d, network r/w: %d/%d",
 				streamID, m.Application.BytesReceived, m.Application.BytesSent,
 				m.Network.BytesReceived, m.Network.BytesSent))
 			c.storeMeasurement(streamID, m)
@@ -318,7 +318,7 @@ func (c *Throughput1Client) runStream(ctx context.Context, streamID int, mURL *u
 				continue
 			}
 			c.Emitter.OnMeasurement(streamID, m)
-			c.Emitter.OnDebug(fmt.Sprintf("#%d - application r/w: %d/%d, network r/w: %d/%d\n",
+			c.Emitter.OnDebug(fmt.Sprintf("#%d - application r/w: %d/%d, network r/w: %d/%d",
 				streamID, m.Application.BytesReceived, m.Application.BytesSent,
 				m.Network.BytesReceived, m.Network.BytesSent))
 			c.storeMeasurement(streamID, m)
