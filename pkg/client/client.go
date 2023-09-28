@@ -61,13 +61,9 @@ type Throughput1Client struct {
 	// Dialer is the websocket.Dialer used by the client.
 	Dialer *websocket.Dialer
 
-	// Server is the server to connect to. If both Server and ServiceURL are empty,
-	// the server is obtained by querying the configured Locator.
+	// Server is the server to connect to. If empty, the server is obtained by
+	// querying the configured Locator.
 	Server string
-
-	// ServiceURL is the full URL to connect to. If both Server and ServiceURL are empty,
-	// the server is obtained by querying the configured Locator.
-	ServiceURL *url.URL
 
 	// Locate is the Locator used to obtain the server to connect to.
 	Locate Locator
@@ -210,15 +206,7 @@ func (c *Throughput1Client) start(ctx context.Context, subtest spec.SubtestKind)
 		mURL.RawQuery = q.Encode()
 	}
 
-	// If a service URL was provided, use it as-is.
-	if c.ServiceURL != nil {
-		c.Emitter.OnDebug(fmt.Sprintf("using service url provided via flags %s", c.ServiceURL.String()))
-		// Override scheme to match the provided service url.
-		c.Scheme = c.ServiceURL.Scheme
-		mURL = c.ServiceURL
-	}
-
-	// If no service URL nor server was provided, use the Locate API.
+	// If no server has been provided, use the Locate API.
 	if mURL == nil {
 		c.Emitter.OnDebug("using locate")
 		urlStr, err := c.nextURLFromLocate(ctx, getPathForSubtest(subtest))
