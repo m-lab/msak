@@ -9,12 +9,19 @@ import (
 
 // Emitter is an interface for emitting results.
 type Emitter interface {
+	// OnStart is called when a stream starts.
 	OnStart(server string, kind spec.SubtestKind)
+	// OnConnect is called when the WebSocket connection is established.
 	OnConnect(server string)
+	// OnMeasurement is called on received Measurement objects.
 	OnMeasurement(id int, m model.WireMeasurement)
+	// OnResult is called when the aggregate result is ready.
 	OnResult(Result)
+	// OnError is called on errors.
 	OnError(err error)
+	// OnComplete is called after a stream completes.
 	OnComplete(streamID int, server string)
+	// OnDebug is called to print debug information.
 	OnDebug(msg string)
 }
 
@@ -30,7 +37,7 @@ func (HumanReadable) OnResult(r Result) {
 		r.Goodput/1024/1024, r.MinRTT)
 }
 
-// OnStart is called when the stream starts.
+// OnStart is called when the stream starts and prints the subtest and server hostname.
 func (HumanReadable) OnStart(server string, kind spec.SubtestKind) {
 	fmt.Printf("Starting %s stream (server: %s)\n", kind, server)
 }
