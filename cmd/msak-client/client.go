@@ -5,25 +5,22 @@ import (
 	"crypto/tls"
 	"flag"
 	"log"
-	"os"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/m-lab/msak/pkg/client"
 	"github.com/m-lab/msak/pkg/version"
 )
 
-var (
-	clientName    = "msak-client-go"
-	clientVersion = version.Version
-)
+const clientName = "msak-client-go"
+
+var clientVersion = version.Version
 
 var (
 	flagServer   = flag.String("server", "", "Server address")
-	flagStreams  = flag.Int("streams", 2, "Number of streams")
+	flagStreams  = flag.Int("streams", client.DefaultStreams, "Number of streams")
 	flagCC       = flag.String("cc", "bbr", "Congestion control algorithm to use")
 	flagDelay    = flag.Duration("delay", 0, "Delay between each stream")
-	flagDuration = flag.Duration("duration", 3*time.Second, "Length of the last stream")
+	flagDuration = flag.Duration("duration", client.DefaultLength, "Length of the last stream")
 	flagScheme   = flag.String("scheme", "ws", "Websocket scheme (wss or ws)")
 	flagMID      = flag.String("mid", uuid.NewString(), "Measurement ID to use")
 	flagNoVerify = flag.Bool("no-verify", false, "Skip TLS certificate verification")
@@ -33,9 +30,10 @@ var (
 func main() {
 	flag.Parse()
 
+	// For a given number of streams, there will be streams-1 delays. This makes
+	// sure that all the streams can at least start with the current configuration.
 	if float64(*flagStreams-1)*flagDelay.Seconds() >= flagDuration.Seconds() {
-		log.Print("Invalid configuration: please check streams, delay and duration and make sure they make sense.")
-		os.Exit(1)
+		log.Fatal("Invalid configuration: please check streams, delay and duration and make sure they make sense.")
 	}
 
 	cl := client.New(clientName, clientVersion)
