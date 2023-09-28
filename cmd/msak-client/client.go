@@ -46,6 +46,7 @@ func main() {
 		Emitter: client.HumanReadable{
 			Debug: *flagDebug,
 		},
+		NoVerify: *flagNoVerify,
 	}
 
 	cl := client.New(clientName, clientVersion, config)

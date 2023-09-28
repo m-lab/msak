@@ -32,4 +32,7 @@ type Config struct {
 	// Emitter is the interface used to emit the results of the test. It can be overridden
 	// to provide a custom output.
 	Emitter Emitter
+
+	// NoVerify disables the TLS certificate verification.
+	NoVerify bool
 }

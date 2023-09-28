@@ -46,6 +46,19 @@ var (
 	libraryVersion = version.Version
 )
 
+// defaultDialer is the default websocket.Dialer used by the client.
+// It wraps the net.Conn with a netx.Conn.
+var defaultDialer = &websocket.Dialer{
+	HandshakeTimeout: DefaultWebSocketHandshakeTimeout,
+	NetDial: func(network, addr string) (net.Conn, error) {
+		conn, err := net.Dial(network, addr)
+		if err != nil {
+			return nil, err
+		}
+		return netx.FromTCPConn(conn.(*net.TCPConn))
+	},
+}
+
 // Locator is an interface used to get a list of available servers to test against.
 type Locator interface {
 	Nearest(ctx context.Context, service string) ([]v2.Target, error)
@@ -67,6 +80,8 @@ type Throughput1Client struct {
 	targets []v2.Target
 	tIndex  map[string]int
 
+	// recvByteCounters is a map of stream IDs to number of bytes, used to compute the goodput.
+	// A new byte count is appended every time the client sees a receiver-side Measurement.
 	recvByteCounters      map[int][]int64
 	recvByteCountersMutex sync.Mutex
 }
@@ -92,21 +107,14 @@ func makeUserAgent(clientName, clientVersion string) string {
 
 // New returns a new Throughput1Client with the provided client name, version and config.
 func New(clientName, clientVersion string, config Config) *Throughput1Client {
+	defaultDialer.TLSClientConfig.InsecureSkipVerify = config.NoVerify
+
 	return &Throughput1Client{
 		ClientName:    clientName,
 		ClientVersion: clientVersion,
 
 		config: config,
-		dialer: &websocket.Dialer{
-			HandshakeTimeout: DefaultWebSocketHandshakeTimeout,
-			NetDial: func(network, addr string) (net.Conn, error) {
-				conn, err := net.Dial(network, addr)
-				if err != nil {
-					return nil, err
-				}
-				return netx.FromTCPConn(conn.(*net.TCPConn))
-			},
-		},
+		dialer: defaultDialer,
 
 		locator: locate.NewClient(makeUserAgent(clientName, clientVersion)),
 
