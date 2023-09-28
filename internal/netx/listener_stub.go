@@ -11,5 +11,5 @@ func (ln *Listener) accept() (net.Conn, error) {
 		return nil, err
 	}
 
-	return fromTCPConn(tc)
+	return fromTCPLikeConn(tc)
 }
