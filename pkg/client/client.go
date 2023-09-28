@@ -220,7 +220,7 @@ func (c *Throughput1Client) start(ctx context.Context, subtest spec.SubtestKind)
 
 	// If no service URL nor server was provided, use the Locate API.
 	if mURL == nil {
-		log.Print("using locate")
+		c.Emitter.OnDebug("using locate")
 		urlStr, err := c.nextURLFromLocate(ctx, getPathForSubtest(subtest))
 		if err != nil {
 			return err
