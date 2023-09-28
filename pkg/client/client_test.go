@@ -18,7 +18,7 @@ import (
 
 func TestNew(t *testing.T) {
 	t.Run("new clients have the expected name and version", func(t *testing.T) {
-		c := New("test", "v1.0.0", ClientConfig{})
+		c := New("test", "v1.0.0", Config{})
 		if c.ClientName != "test" || c.ClientVersion != "v1.0.0" {
 			t.Errorf("client.New() returned client with wrong name/version")
 		}
@@ -42,7 +42,7 @@ func setupTestServer(handler http.Handler) *httptest.Server {
 
 func TestNDT8Client_connect(t *testing.T) {
 
-	c := New("test", "version", ClientConfig{
+	c := New("test", "version", Config{
 		NumStreams:        3,
 		CongestionControl: "cubic",
 		Length:            5 * time.Second,

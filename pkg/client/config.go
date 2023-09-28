@@ -4,8 +4,8 @@ import (
 	"time"
 )
 
-// ClientConfig is the configuration for a Client.
-type ClientConfig struct {
+// Config is the configuration for a Client.
+type Config struct {
 	// Server is the server to connect to. If empty, the server is obtained by
 	// querying the configured Locator.
 	Server string

@@ -58,7 +58,7 @@ type Throughput1Client struct {
 	// ClientVersion is the version of the client sent to the server as part of the user-agent.
 	ClientVersion string
 
-	config ClientConfig
+	config Config
 
 	dialer  *websocket.Dialer
 	locator Locator
@@ -91,7 +91,7 @@ func makeUserAgent(clientName, clientVersion string) string {
 }
 
 // New returns a new Throughput1Client with the provided client name, version and config.
-func New(clientName, clientVersion string, config ClientConfig) *Throughput1Client {
+func New(clientName, clientVersion string, config Config) *Throughput1Client {
 	return &Throughput1Client{
 		ClientName:    clientName,
 		ClientVersion: clientVersion,

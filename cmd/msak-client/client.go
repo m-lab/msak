@@ -35,7 +35,7 @@ func main() {
 		log.Fatal("Invalid configuration: please check streams, delay and duration and make sure they make sense.")
 	}
 
-	config := client.ClientConfig{
+	config := client.Config{
 		Server:            *flagServer,
 		Scheme:            *flagScheme,
 		NumStreams:        *flagStreams,
