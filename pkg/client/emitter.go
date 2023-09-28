@@ -12,7 +12,6 @@ type Emitter interface {
 	OnConnect(server string)
 	OnMeasurement(id int, m model.WireMeasurement)
 	OnResult(Result)
-	OnStreamResult(StreamResult)
 	OnError(err error)
 	OnComplete(streamID int, server string)
 	OnDebug(msg string)
@@ -24,14 +23,8 @@ type HumanReadable struct {
 
 // OnResult prints the aggregate result.
 func (*HumanReadable) OnResult(r Result) {
-	fmt.Printf("Elapsed: %.2fs, Goodput: %f, MinRTT: %d\n", r.Elapsed.Seconds(),
-		r.Goodput, r.MinRTT)
-}
-
-// OnStreamResult prints the per-stream result.
-func (*HumanReadable) OnStreamResult(sr StreamResult) {
-	fmt.Printf("\tStream #%d - gp %f, tp: %f, minrtt: %d\n", sr.StreamID,
-		sr.Goodput, sr.Throughput, sr.MinRTT)
+	fmt.Printf("Elapsed: %.2fs, Goodput: %f Mb/s, MinRTT: %d\n", r.Elapsed.Seconds(),
+		r.Goodput/1024/1024, r.MinRTT)
 }
 
 // OnStart is called when the stream starts.
