@@ -21,7 +21,7 @@ var (
 	flagCC       = flag.String("cc", "bbr", "Congestion control algorithm to use")
 	flagDelay    = flag.Duration("delay", 0, "Delay between each stream")
 	flagDuration = flag.Duration("duration", client.DefaultLength, "Length of the last stream")
-	flagScheme   = flag.String("scheme", "ws", "Websocket scheme (wss or ws)")
+	flagScheme   = flag.String("scheme", client.DefaultScheme, "Websocket scheme (wss or ws)")
 	flagMID      = flag.String("mid", uuid.NewString(), "Measurement ID to use")
 	flagNoVerify = flag.Bool("no-verify", false, "Skip TLS certificate verification")
 	flagDebug    = flag.Bool("debug", false, "Enable debug logging")

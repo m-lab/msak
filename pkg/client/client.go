@@ -33,6 +33,9 @@ const (
 	// DefaultLength is the default test duration for a new client.
 	DefaultLength = 5 * time.Second
 
+	// DefaultScheme is the default WebSocket scheme for a new Client.
+	DefaultScheme = "wss"
+
 	libraryName = "msak-client"
 )
 
@@ -102,16 +105,16 @@ type Throughput1Client struct {
 
 // Result contains the aggregate metrics collected during the test.
 type Result struct {
-	Goodput    float64
+	// Goodput is the average number of application-level bits per second that
+	// have been transferred so far across all the streams.
+	Goodput float64
+	// Throughput is the average number of network-level bits per second that
+	// have been transferred so far across all the streams.
 	Throughput float64
-	Elapsed    time.Duration
-	MinRTT     uint32
-}
-
-// StreamResult contains the per-stream metrics collected during the test.
-type StreamResult struct {
-	Result
-	StreamID int
+	// Elapsed is the total time elapsed since the test started.
+	Elapsed time.Duration
+	// MinRTT is the minimum of MinRTT values observed across all the streams.
+	MinRTT uint32
 }
 
 // makeUserAgent creates the user agent string.

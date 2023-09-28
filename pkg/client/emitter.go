@@ -7,6 +7,7 @@ import (
 	"github.com/m-lab/msak/pkg/throughput1/spec"
 )
 
+// Emitter is an interface for emitting results.
 type Emitter interface {
 	OnStart(server string, kind spec.SubtestKind)
 	OnConnect(server string)
@@ -17,6 +18,8 @@ type Emitter interface {
 	OnDebug(msg string)
 }
 
+// HumanReadable prints human-readable output to stdout.
+// It can be configured to include debug output, too.
 type HumanReadable struct {
 	Debug bool
 }
@@ -59,4 +62,5 @@ func (e *HumanReadable) OnDebug(msg string) {
 	}
 }
 
+// Checks that HumanReadable implements Emitter.
 var _ Emitter = &HumanReadable{}
