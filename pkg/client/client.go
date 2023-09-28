@@ -137,7 +137,7 @@ func New(clientName, clientVersion string) *Throughput1Client {
 				return netx.FromTCPConn(conn.(*net.TCPConn))
 			},
 		},
-		Scheme:     "wss",
+		Scheme:     DefaultScheme,
 		NumStreams: DefaultStreams,
 		Length:     DefaultLength,
 		Locate: locate.NewClient(
