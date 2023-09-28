@@ -1,11 +1,10 @@
 package netx
 
 import (
-	"net"
 	"time"
 )
 
-func fromTCPConn(tcpConn *net.TCPConn) (*Conn, error) {
+func fromTCPLikeConn(tcpConn TCPLikeConn) (*Conn, error) {
 	// On Linux system, this can only fail when the file duplication fails.
 	fp, err := tcpConn.File()
 	if err != nil {

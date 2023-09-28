@@ -106,7 +106,7 @@ func TestProtocol_Download(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return netx.FromTCPConn(conn.(*net.TCPConn))
+			return netx.FromTCPLikeConn(conn.(*net.TCPConn))
 		},
 	}
 
