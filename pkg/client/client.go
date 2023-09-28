@@ -386,6 +386,6 @@ func getPathForSubtest(subtest spec.SubtestKind) string {
 	case spec.SubtestUpload:
 		return spec.UploadPath
 	default:
-		return "invalid"
+		panic(fmt.Sprintf("invalid subtest: %s", subtest))
 	}
 }
