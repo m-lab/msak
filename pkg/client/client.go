@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"log"
@@ -47,7 +48,7 @@ var (
 )
 
 // defaultDialer is the default websocket.Dialer used by the client.
-// It wraps the net.Conn with a netx.Conn.
+// Its NetDial function wraps the net.Conn with a netx.Conn.
 var defaultDialer = &websocket.Dialer{
 	HandshakeTimeout: DefaultWebSocketHandshakeTimeout,
 	NetDial: func(network, addr string) (net.Conn, error) {
@@ -57,6 +58,7 @@ var defaultDialer = &websocket.Dialer{
 		}
 		return netx.FromTCPConn(conn.(*net.TCPConn))
 	},
+	TLSClientConfig: &tls.Config{},
 }
 
 // Locator is an interface used to get a list of available servers to test against.
@@ -108,7 +110,6 @@ func makeUserAgent(clientName, clientVersion string) string {
 // New returns a new Throughput1Client with the provided client name, version and config.
 func New(clientName, clientVersion string, config Config) *Throughput1Client {
 	defaultDialer.TLSClientConfig.InsecureSkipVerify = config.NoVerify
-
 	return &Throughput1Client{
 		ClientName:    clientName,
 		ClientVersion: clientVersion,
