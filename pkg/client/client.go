@@ -28,7 +28,7 @@ const (
 	DefaultWebSocketHandshakeTimeout = 5 * time.Second
 
 	// DefaultStreams is the default number of streams for a new client.
-	DefaultStreams = 5
+	DefaultStreams = 3
 
 	// DefaultLength is the default test duration for a new client.
 	DefaultLength = 5 * time.Second
@@ -50,9 +50,9 @@ type Locator interface {
 
 // Throughput1Client is a client for the throughput1 protocol.
 type Throughput1Client struct {
-	// ClientName is the name of the client as sent to the server as part of the user-agent.
+	// ClientName is the name of the client sent to the server as part of the user-agent.
 	ClientName string
-	// ClientVersion is the version of the client as sent to the server as part of the user-agent.
+	// ClientVersion is the version of the client sent to the server as part of the user-agent.
 	ClientVersion string
 
 	// Dialer is the websocket.Dialer used by the client.
@@ -88,7 +88,8 @@ type Throughput1Client struct {
 	// MeasurementID is the manually configured Measurement ID ("mid") to pass to the server.
 	MeasurementID string
 
-	// Emitter is the emitter used to emit results.
+	// Emitter is the interface used to emit the results of the test. It can be overridden
+	// to provide a custom output.
 	Emitter Emitter
 
 	// targets and tIndex cache the results from the Locate API.
