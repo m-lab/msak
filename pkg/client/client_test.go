@@ -23,6 +23,16 @@ func TestNew(t *testing.T) {
 			t.Errorf("client.New() returned client with wrong name/version")
 		}
 	})
+	t.Run("new clients must have non-empty name and version", func(t *testing.T) {
+		// Test that New panics when passed empty strings.
+		defer func() {
+			if r := recover(); r == nil {
+				t.Errorf("client.New() did not panic when passed empty strings")
+			}
+		}()
+
+		New("", "", Config{})
+	})
 }
 
 func Test_makeUserAgent(t *testing.T) {

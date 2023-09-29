@@ -108,7 +108,11 @@ func makeUserAgent(clientName, clientVersion string) string {
 }
 
 // New returns a new Throughput1Client with the provided client name, version and config.
+// It panics if clientName or clientVersion are empty.
 func New(clientName, clientVersion string, config Config) *Throughput1Client {
+	if clientName == "" || clientVersion == "" {
+		panic("client name and version must be non-empty")
+	}
 	defaultDialer.TLSClientConfig.InsecureSkipVerify = config.NoVerify
 	return &Throughput1Client{
 		ClientName:    clientName,
