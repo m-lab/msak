@@ -160,9 +160,10 @@ func (c *Throughput1Client) nextURLFromLocate(ctx context.Context, p string) (st
 		// cache targets on success.
 		c.targets = targets
 	}
+	// Returns the next URL from the cache.
+	// The index to access the next URL (tIndex[k]) is per-path rather than global.
 	k := c.config.Scheme + "://" + p
 	if c.tIndex[k] < len(c.targets) {
-		fmt.Println(c.targets[c.tIndex[k]].URLs)
 		r := c.targets[c.tIndex[k]].URLs[k]
 		c.tIndex[k]++
 		return r, nil
