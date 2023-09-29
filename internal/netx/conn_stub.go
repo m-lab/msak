@@ -4,11 +4,10 @@
 package netx
 
 import (
-	"net"
 	"time"
 )
 
-func fromTCPConn(tcpConn *net.TCPConn) (*Conn, error) {
+func fromTCPLikeConn(tcpConn TCPLikeConn) (*Conn, error) {
 	// On non-Linux systems, TCPInfo/BBRInfo aren't supported, the file pointer
 	// is not needed.
 	return &Conn{
