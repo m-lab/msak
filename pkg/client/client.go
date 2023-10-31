@@ -86,6 +86,9 @@ type Throughput1Client struct {
 	// A new byte count is appended every time the client sees a receiver-side Measurement.
 	recvByteCounters      map[int][]int64
 	recvByteCountersMutex sync.Mutex
+
+	globalStartTime     time.Time
+	globalStartTimeOnce sync.Once
 }
 
 // Result contains the aggregate metrics collected during the test.
@@ -209,9 +212,18 @@ func (c *Throughput1Client) start(ctx context.Context, subtest spec.SubtestKind)
 
 	// Reset the counters.
 	c.recvByteCounters = map[int][]int64{}
-	globalStartTime := time.Now()
+
+	startTimeCh := make(chan time.Time, 1)
 
 	go func() {
+		// Wait for at least one stream to signal that it started.
+		select {
+		case startTime := <-startTimeCh:
+			c.globalStartTime = startTime
+		case <-globalTimeout.Done():
+			return
+		}
+
 		t := time.NewTicker(100 * time.Millisecond)
 		// Print goodput every 100ms. Stop when the context is cancelled.
 		for {
@@ -219,7 +231,7 @@ func (c *Throughput1Client) start(ctx context.Context, subtest spec.SubtestKind)
 			case <-globalTimeout.Done():
 				return
 			case <-t.C:
-				c.emitResult(globalStartTime)
+				c.emitResult(c.globalStartTime)
 			}
 		}
 	}()
@@ -233,7 +245,7 @@ func (c *Throughput1Client) start(ctx context.Context, subtest spec.SubtestKind)
 			defer wg.Done()
 
 			// Run a single stream.
-			err := c.runStream(globalTimeout, streamID, mURL, subtest, globalStartTime)
+			err := c.runStream(globalTimeout, streamID, mURL, subtest, startTimeCh)
 			if err != nil {
 				c.config.Emitter.OnError(err)
 			}
@@ -248,7 +260,7 @@ func (c *Throughput1Client) start(ctx context.Context, subtest spec.SubtestKind)
 }
 
 func (c *Throughput1Client) runStream(ctx context.Context, streamID int, mURL *url.URL,
-	subtest spec.SubtestKind, globalStartTime time.Time) error {
+	subtest spec.SubtestKind, startTimeCh chan time.Time) error {
 
 	measurements := make(chan model.WireMeasurement)
 
@@ -259,6 +271,14 @@ func (c *Throughput1Client) runStream(ctx context.Context, streamID int, mURL *u
 		close(measurements)
 		return err
 	}
+	defer conn.Close()
+
+	select {
+	case startTimeCh <- time.Now():
+	default:
+		// NOTHING
+	}
+
 	c.config.Emitter.OnConnect(mURL.String())
 
 	proto := throughput1.New(conn)
@@ -315,7 +335,9 @@ func (c *Throughput1Client) applicationBytes() int64 {
 	var sum int64
 	c.recvByteCountersMutex.Lock()
 	for _, bytes := range c.recvByteCounters {
-		sum += bytes[len(bytes)-1]
+		if len(bytes) > 0 {
+			sum += bytes[len(bytes)-1]
+		}
 	}
 	c.recvByteCountersMutex.Unlock()
 	return sum
