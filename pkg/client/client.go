@@ -87,8 +87,9 @@ type Throughput1Client struct {
 	recvByteCounters      map[int][]int64
 	recvByteCountersMutex sync.Mutex
 
-	globalStartTime     time.Time
-	globalStartTimeOnce sync.Once
+	// sharedStartTime is the time at which the test started, shared across all streams.
+	// It is set when the first streams connects to the server and used to compute the elapsed time.
+	sharedStartTime time.Time
 }
 
 // Result contains the aggregate metrics collected during the test.
@@ -207,33 +208,28 @@ func (c *Throughput1Client) start(ctx context.Context, subtest spec.SubtestKind)
 	}
 
 	wg := &sync.WaitGroup{}
-	globalTimeout, cancel := context.WithTimeout(ctx, c.config.Length)
-	defer cancel()
 
 	// Reset the counters.
 	c.recvByteCounters = map[int][]int64{}
 
 	startTimeCh := make(chan time.Time, 1)
 
+	testCtx, cancelTest := context.WithCancel(ctx)
+	defer cancelTest()
+
 	go func() {
-		// Wait for at least one stream to signal that it started.
-		select {
-		case startTime := <-startTimeCh:
-			c.globalStartTime = startTime
-		case <-globalTimeout.Done():
+		// Wait for the start signal to come from any of the streams.
+		// Returns early if the context is cancelled.
+		started := c.waitStart(testCtx, startTimeCh)
+		if !started {
 			return
 		}
 
-		t := time.NewTicker(100 * time.Millisecond)
-		// Print goodput every 100ms. Stop when the context is cancelled.
-		for {
-			select {
-			case <-globalTimeout.Done():
-				return
-			case <-t.C:
-				c.emitResult(c.globalStartTime)
-			}
-		}
+		// Once at least one of the streams has started, start a timer to cancel
+		// the context after the configured test duration.
+		time.AfterFunc(c.config.Length, cancelTest)
+
+		c.emitLoop(testCtx)
 	}()
 
 	// Main client loop. Spawns one goroutine per stream.
@@ -245,7 +241,7 @@ func (c *Throughput1Client) start(ctx context.Context, subtest spec.SubtestKind)
 			defer wg.Done()
 
 			// Run a single stream.
-			err := c.runStream(globalTimeout, streamID, mURL, subtest, startTimeCh)
+			err := c.runStream(testCtx, streamID, mURL, subtest, startTimeCh)
 			if err != nil {
 				c.config.Emitter.OnError(err)
 			}
@@ -257,6 +253,31 @@ func (c *Throughput1Client) start(ctx context.Context, subtest spec.SubtestKind)
 	wg.Wait()
 
 	return nil
+}
+
+func (c *Throughput1Client) waitStart(ctx context.Context, startTimeCh chan time.Time) bool {
+	select {
+	case startTime := <-startTimeCh:
+		c.sharedStartTime = startTime
+	case <-ctx.Done():
+		return false
+	}
+
+	return true
+}
+
+// emitLoop emits the results every 100ms once a . It stops when the context is cancelled.
+func (c *Throughput1Client) emitLoop(ctx context.Context) {
+	t := time.NewTicker(100 * time.Millisecond)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			c.emitResult(c.sharedStartTime)
+		}
+	}
 }
 
 func (c *Throughput1Client) runStream(ctx context.Context, streamID int, mURL *url.URL,
@@ -273,6 +294,8 @@ func (c *Throughput1Client) runStream(ctx context.Context, streamID int, mURL *u
 	}
 	defer conn.Close()
 
+	// Send the start time to the channel. This is a non-blocking send since the
+	// receiver only reads one value
 	select {
 	case startTimeCh <- time.Now():
 	default:
