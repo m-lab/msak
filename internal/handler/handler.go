@@ -16,6 +16,7 @@ import (
 	"github.com/m-lab/msak/internal/persistence"
 	"github.com/m-lab/msak/pkg/throughput1"
 	"github.com/m-lab/msak/pkg/throughput1/model"
+	"github.com/m-lab/msak/pkg/throughput1/spec"
 	"github.com/m-lab/msak/pkg/version"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -130,6 +131,24 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 			model.NameValue{Name: "delay", Value: requestDelay})
 	}
 
+	requestByteLimit := query.Get(spec.ByteLimitParameterName)
+	var byteLimit int
+	if requestByteLimit != "" {
+		// Check that byteLimit is a valid integer.
+		if v, err := strconv.Atoi(requestByteLimit); err == nil {
+			byteLimit = v
+			clientOptions = append(clientOptions,
+				model.NameValue{Name: spec.ByteLimitParameterName, Value: requestByteLimit})
+		} else {
+			ClientConnections.WithLabelValues(string(kind),
+				"invalid-byte-limit").Inc()
+			log.Info("Received request with an invalid byte limit",
+				"source", req.RemoteAddr, "value", byteLimit)
+			writeBadRequest(rw)
+			return
+		}
+	}
+
 	// Read metadata (i.e. everything in the querystring that's not a known
 	// option).
 	metadata, err := getRequestMetadata(req)
@@ -198,6 +217,7 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 	defer cancel()
 
 	proto := throughput1.New(wsConn)
+	proto.SetByteLimit(byteLimit)
 	var senderCh, receiverCh <-chan model.WireMeasurement
 	var errCh <-chan error
 	if kind == model.DirectionDownload {

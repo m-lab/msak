@@ -47,6 +47,8 @@ type Protocol struct {
 
 	applicationBytesReceived atomic.Int64
 	applicationBytesSent     atomic.Int64
+
+	byteLimit int
 }
 
 // New returns a new Protocol with the specified connection and every other
@@ -59,6 +61,12 @@ func New(conn *websocket.Conn) *Protocol {
 		rnd:      rand.New(rand.NewSource(time.Now().UnixMilli())),
 		measurer: &DefaultMeasurer{},
 	}
+}
+
+// SetByteLimit sets the number of bytes sent after which a test (either download or upload) will stop.
+// Set the value to zero to disable the byte limit.
+func (p *Protocol) SetByteLimit(value int) {
+	p.byteLimit = value
 }
 
 // Upgrade takes a HTTP request and upgrades the connection to WebSocket.
@@ -218,6 +226,12 @@ func (p *Protocol) sendCounterflow(ctx context.Context,
 			case results <- wm:
 			default:
 			}
+
+			// End the test once enough bytes have been received.
+			if p.byteLimit > 0 && m.TCPInfo != nil && m.TCPInfo.BytesReceived >= int64(p.byteLimit) {
+				p.close(ctx)
+				return
+			}
 		}
 	}
 }
@@ -273,6 +287,12 @@ func (p *Protocol) sender(ctx context.Context, measurerCh <-chan model.Measureme
 			select {
 			case results <- wm:
 			default:
+			}
+
+			// End the test once enough bytes have been acked.
+			if p.byteLimit > 0 && m.TCPInfo != nil && m.TCPInfo.BytesAcked >= int64(p.byteLimit) {
+				p.close(ctx)
+				return
 			}
 		default:
 			err = p.conn.WritePreparedMessage(message)

@@ -136,6 +136,7 @@ func (c *Throughput1Client) connect(ctx context.Context, serviceURL *url.URL) (*
 	q := serviceURL.Query()
 	q.Set("streams", fmt.Sprint(c.config.NumStreams))
 	q.Set("cc", c.config.CongestionControl)
+	q.Set(spec.ByteLimitParameterName, fmt.Sprint(c.config.ByteLimit))
 	q.Set("duration", fmt.Sprintf("%d", c.config.Length.Milliseconds()))
 	q.Set("client_arch", runtime.GOARCH)
 	q.Set("client_library_name", libraryName)
