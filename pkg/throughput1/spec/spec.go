@@ -38,10 +38,10 @@ const (
 	// SecWebSocketProtocol is the value of the Sec-WebSocket-Protocol header.
 	SecWebSocketProtocol = "net.measurementlab.throughput.v1"
 
-	// ByteLimitParameterName is the name of the parameter that clients can use
+	// BytesLimitParameterName is the name of the parameter that clients can use
 	// to terminate throughput1 download tests once the test has transferred
 	// the specified number of bytes.
-	ByteLimitParameterName = "bytes"
+	BytesLimitParameterName = "bytes"
 )
 
 // SubtestKind indicates the subtest kind

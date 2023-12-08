@@ -131,19 +131,19 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 			model.NameValue{Name: "delay", Value: requestDelay})
 	}
 
-	requestByteLimit := query.Get(spec.ByteLimitParameterName)
-	var byteLimit int
-	if requestByteLimit != "" {
-		// Check that byteLimit is a valid integer.
-		if v, err := strconv.Atoi(requestByteLimit); err == nil {
-			byteLimit = v
+	requestBytesLimit := query.Get(spec.BytesLimitParameterName)
+	var bytesLimit int
+	if requestBytesLimit != "" {
+		// Check that bytesLimit is a valid integer.
+		if v, err := strconv.Atoi(requestBytesLimit); err == nil {
+			bytesLimit = v
 			clientOptions = append(clientOptions,
-				model.NameValue{Name: spec.ByteLimitParameterName, Value: requestByteLimit})
+				model.NameValue{Name: spec.BytesLimitParameterName, Value: requestBytesLimit})
 		} else {
 			ClientConnections.WithLabelValues(string(kind),
 				"invalid-byte-limit").Inc()
 			log.Info("Received request with an invalid byte limit",
-				"source", req.RemoteAddr, "value", byteLimit)
+				"source", req.RemoteAddr, "value", bytesLimit)
 			writeBadRequest(rw)
 			return
 		}
@@ -217,7 +217,7 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 	defer cancel()
 
 	proto := throughput1.New(wsConn)
-	proto.SetByteLimit(byteLimit)
+	proto.SetBytesLimit(bytesLimit)
 	var senderCh, receiverCh <-chan model.WireMeasurement
 	var errCh <-chan error
 	if kind == model.DirectionDownload {
