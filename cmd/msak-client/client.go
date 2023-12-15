@@ -24,7 +24,7 @@ var (
 	flagMID        = flag.String("mid", uuid.NewString(), "Measurement ID to use")
 	flagNoVerify   = flag.Bool("no-verify", false, "Skip TLS certificate verification")
 	flagDebug      = flag.Bool("debug", false, "Enable debug logging")
-	flagBytesLimit = flag.Int("bytes", 0, "Byte limit to request to the server")
+	flagByteLimit = flag.Int("bytes", 0, "Byte limit to request to the server")
 )
 
 func main() {
@@ -48,7 +48,7 @@ func main() {
 			Debug: *flagDebug,
 		},
 		NoVerify:   *flagNoVerify,
-		BytesLimit: *flagBytesLimit,
+		ByteLimit: *flagByteLimit,
 	}
 
 	cl := client.New(clientName, clientVersion, config)
