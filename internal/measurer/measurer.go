@@ -16,13 +16,22 @@ import (
 	"github.com/m-lab/msak/pkg/throughput1/spec"
 )
 
-type throughput1Measurer struct {
+// Throughput1Measurer tracks state for collecting connection measurements.
+type Throughput1Measurer struct {
 	connInfo            netx.ConnInfo
 	startTime           time.Time
 	bytesReadAtStart    int64
 	bytesWrittenAtStart int64
 
 	dstChan chan model.Measurement
+
+	// ReadChan is a readable channel for measurements created by the measurer.
+	ReadChan <-chan model.Measurement
+}
+
+// New creates an empty Throughput1Measurer. The measurer must be started with Start.
+func New() *Throughput1Measurer {
+	return &Throughput1Measurer{}
 }
 
 // Start starts a measurer goroutine that periodically reads the tcp_info and
@@ -31,7 +40,7 @@ type throughput1Measurer struct {
 //
 // The context determines the measurer goroutine's lifetime.
 // If passed a connection that is not a netx.Conn, this function will panic.
-func Start(ctx context.Context, conn net.Conn) <-chan model.Measurement {
+func (m *Throughput1Measurer) Start(ctx context.Context, conn net.Conn) <-chan model.Measurement {
 	// Implementation note: this channel must be buffered to account for slow
 	// readers. The "typical" reader is an throughput1 send or receive loop, which
 	// might be busy with data r/w. The buffer size corresponds to at least 10
@@ -42,9 +51,10 @@ func Start(ctx context.Context, conn net.Conn) <-chan model.Measurement {
 
 	connInfo := netx.ToConnInfo(conn)
 	read, written := connInfo.ByteCounters()
-	m := &throughput1Measurer{
+	*m = Throughput1Measurer{
 		connInfo:  connInfo,
 		dstChan:   dst,
+		ReadChan:  dst,
 		startTime: time.Now(),
 		// Byte counters are offset by their initial value, so that the
 		// BytesSent/BytesReceived fields represent "application-level bytes
@@ -55,10 +65,10 @@ func Start(ctx context.Context, conn net.Conn) <-chan model.Measurement {
 		bytesWrittenAtStart: int64(written),
 	}
 	go m.loop(ctx)
-	return dst
+	return m.ReadChan
 }
 
-func (m *throughput1Measurer) loop(ctx context.Context) {
+func (m *Throughput1Measurer) loop(ctx context.Context) {
 	log.Debug("Measurer started", "context", ctx)
 	defer log.Debug("Measurer stopped", "context", ctx)
 	t, err := memoryless.NewTicker(ctx, memoryless.Config{
@@ -81,7 +91,16 @@ func (m *throughput1Measurer) loop(ctx context.Context) {
 	}
 }
 
-func (m *throughput1Measurer) measure(ctx context.Context) {
+func (m *Throughput1Measurer) measure(ctx context.Context) {
+	select {
+	case <-ctx.Done():
+		// NOTHING
+	case m.dstChan <- m.Measure(ctx):
+	}
+}
+
+// Measure collects metrics about the life of the connection.
+func (m *Throughput1Measurer) Measure(ctx context.Context) model.Measurement {
 	// On non-Linux systems, collecting kernel metrics WILL fail. In that case,
 	// we still want to return a (empty) Measurement.
 	bbrInfo, tcpInfo, err := m.connInfo.Info()
@@ -92,10 +111,7 @@ func (m *throughput1Measurer) measure(ctx context.Context) {
 	// Read current bytes counters.
 	totalRead, totalWritten := m.connInfo.ByteCounters()
 
-	select {
-	case <-ctx.Done():
-		// NOTHING
-	case m.dstChan <- model.Measurement{
+	return model.Measurement{
 		ElapsedTime: time.Since(m.startTime).Microseconds(),
 		Network: model.ByteCounters{
 			BytesSent:     int64(totalWritten) - m.bytesWrittenAtStart,
@@ -106,6 +122,5 @@ func (m *throughput1Measurer) measure(ctx context.Context) {
 			LinuxTCPInfo: tcpInfo,
 			ElapsedTime:  time.Since(m.connInfo.AcceptTime()).Microseconds(),
 		},
-	}:
 	}
 }

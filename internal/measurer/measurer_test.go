@@ -23,7 +23,8 @@ func TestNdt8Measurer_Start(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	mchan := measurer.Start(ctx, serverConn)
+	m := measurer.New()
+	mchan := m.Start(ctx, serverConn)
 	go func() {
 		_, err := serverConn.Write([]byte("test"))
 		rtx.Must(err, "failed to write to pipe")
