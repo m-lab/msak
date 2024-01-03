@@ -216,6 +216,11 @@ func TestHandler_Validation(t *testing.T) {
 			statusCode: http.StatusBadRequest,
 		},
 		{
+			name:       "invalid byte limit",
+			target:     "/?mid=test&streams=2&duration=1000&bytes=invalid",
+			statusCode: http.StatusBadRequest,
+		},
+		{
 			name:       "metadata key too long",
 			target:     "/?mid=test&streams=2&" + longKey,
 			statusCode: http.StatusBadRequest,

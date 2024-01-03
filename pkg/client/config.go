@@ -35,4 +35,8 @@ type Config struct {
 
 	// NoVerify disables the TLS certificate verification.
 	NoVerify bool
+
+	// ByteLimit is the maximum number of bytes to download or upload. If set to 0, the
+	// limit is disabled.
+	ByteLimit int
 }

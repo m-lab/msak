@@ -137,3 +137,51 @@ func TestProtocol_Download(t *testing.T) {
 		}
 	}
 }
+
+func TestProtocol_ScaleMessage(t *testing.T) {
+	tests := []struct {
+		name      string
+		byteLimit int
+		msgSize   int
+		bytesSent int
+		want      int
+	}{
+		{
+			name:      "no-limit",
+			byteLimit: 0,
+			msgSize:   10,
+			bytesSent: 100,
+			want:      10,
+		},
+		{
+			name:      "under-limit",
+			byteLimit: 200,
+			msgSize:   10,
+			bytesSent: 100,
+			want:      10,
+		},
+		{
+			name:      "at-limit",
+			byteLimit: 110,
+			msgSize:   10,
+			bytesSent: 100,
+			want:      10,
+		},
+		{
+			name:      "over-limit",
+			byteLimit: 110,
+			msgSize:   20,
+			bytesSent: 100,
+			want:      10,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &throughput1.Protocol{}
+			p.SetByteLimit(tt.byteLimit)
+			if got := p.ScaleMessage(tt.msgSize, tt.bytesSent); got != tt.want {
+				t.Errorf("Protocol.ScaleMessage() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

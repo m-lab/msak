@@ -47,6 +47,8 @@ type Protocol struct {
 
 	applicationBytesReceived atomic.Int64
 	applicationBytesSent     atomic.Int64
+
+	byteLimit int
 }
 
 // New returns a new Protocol with the specified connection and every other
@@ -59,6 +61,12 @@ func New(conn *websocket.Conn) *Protocol {
 		rnd:      rand.New(rand.NewSource(time.Now().UnixMilli())),
 		measurer: &DefaultMeasurer{},
 	}
+}
+
+// SetByteLimit sets the number of bytes sent after which a test (either download or upload) will stop.
+// Set the value to zero to disable the byte limit.
+func (p *Protocol) SetByteLimit(value int) {
+	p.byteLimit = value
 }
 
 // Upgrade takes a HTTP request and upgrades the connection to WebSocket.
@@ -180,6 +188,7 @@ func (p *Protocol) receiver(ctx context.Context,
 func (p *Protocol) sendCounterflow(ctx context.Context,
 	measurerCh <-chan model.Measurement, results chan<- model.WireMeasurement,
 	errCh chan<- error) {
+	byteLimit := int64(p.byteLimit)
 	for {
 		select {
 		case <-ctx.Done():
@@ -218,13 +227,19 @@ func (p *Protocol) sendCounterflow(ctx context.Context,
 			case results <- wm:
 			default:
 			}
+
+			// End the test once enough bytes have been received.
+			if byteLimit > 0 && m.TCPInfo != nil && m.TCPInfo.BytesReceived >= byteLimit {
+				p.close(ctx)
+				return
+			}
 		}
 	}
 }
 
 func (p *Protocol) sender(ctx context.Context, measurerCh <-chan model.Measurement,
 	results chan<- model.WireMeasurement, errCh chan<- error) {
-	size := spec.MinMessageSize
+	size := p.ScaleMessage(spec.MinMessageSize, 0)
 	message, err := p.makePreparedMessage(size)
 	if err != nil {
 		log.Printf("makePreparedMessage failed (ctx: %p)", ctx)
@@ -283,25 +298,37 @@ func (p *Protocol) sender(ctx context.Context, measurerCh <-chan model.Measureme
 			}
 			p.applicationBytesSent.Add(int64(size))
 
+			bytesSent := int(p.applicationBytesSent.Load())
+			if p.byteLimit > 0 && bytesSent >= p.byteLimit {
+				p.close(ctx)
+				return
+			}
+
 			// Determine whether it's time to scale the message size.
-			if size >= spec.MaxScaledMessageSize {
+			if size >= spec.MaxScaledMessageSize || size > bytesSent/spec.ScalingFraction {
+				size = p.ScaleMessage(size, bytesSent)
 				continue
 			}
 
-			if size > int(p.applicationBytesSent.Load())/spec.ScalingFraction {
-				continue
-			}
-
-			size *= 2
+			size = p.ScaleMessage(size*2, bytesSent)
 			message, err = p.makePreparedMessage(size)
 			if err != nil {
 				log.Printf("failed to make prepared message (ctx: %p, err: %v)", ctx, err)
 				errCh <- err
 				return
 			}
-
 		}
 	}
+}
+
+// ScaleMessage sets the binary message size taking into consideration byte limits.
+func (p *Protocol) ScaleMessage(msgSize int, bytesSent int) int {
+	// Check if the next payload size will push the total number of bytes over the limit.
+	excess := bytesSent + msgSize - p.byteLimit
+	if p.byteLimit > 0 && excess > 0 {
+		msgSize -= excess
+	}
+	return msgSize
 }
 
 func (p *Protocol) close(ctx context.Context) {
