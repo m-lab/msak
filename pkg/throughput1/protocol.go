@@ -211,7 +211,8 @@ func (p *Protocol) sendCounterflow(ctx context.Context,
 	for {
 		select {
 		case <-ctx.Done():
-			// TODO: do we need to send a final wiremessage here?
+			// Attempt to send final write message before close. Ignore errors.
+			p.sendWireMeasurement(ctx, p.measurer.Measure(ctx))
 			p.close(ctx)
 			return
 		case m := <-measurerCh:
