@@ -3,6 +3,7 @@ package client
 import (
 	"fmt"
 
+	"github.com/gorilla/websocket"
 	"github.com/m-lab/msak/pkg/throughput1/model"
 	"github.com/m-lab/msak/pkg/throughput1/spec"
 )
@@ -50,11 +51,14 @@ func (HumanReadable) OnConnect(server string) {
 // OnMeasurement is called on received Measurement objects.
 func (HumanReadable) OnMeasurement(id int, m model.WireMeasurement) {
 	// NOTHING - don't print individual measurement objects in this Emitter.
+	fmt.Println(id, m)
 }
 
 // OnError is called on errors.
 func (HumanReadable) OnError(err error) {
-	fmt.Println(err)
+	if !websocket.IsCloseError(err, websocket.CloseNormalClosure) {
+		fmt.Println(err)
+	}
 }
 
 // OnComplete is called after a stream completes.
