@@ -9,7 +9,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"runtime"
@@ -20,7 +19,6 @@ import (
 	"github.com/m-lab/go/flagx"
 	"github.com/m-lab/go/rtx"
 	"github.com/m-lab/locate/api/locate"
-	"github.com/m-lab/msak/internal/netx"
 	"github.com/m-lab/msak/pkg/throughput1/model"
 )
 
@@ -45,13 +43,6 @@ func init() {
 // localDialer allows insecure TLS for explicit servers.
 var localDialer = &websocket.Dialer{
 	HandshakeTimeout: 5 * time.Second,
-	NetDial: func(network, addr string) (net.Conn, error) {
-		conn, err := net.Dial(network, addr)
-		if err != nil {
-			return nil, err
-		}
-		return netx.FromTCPLikeConn(conn.(*net.TCPConn))
-	},
 	TLSClientConfig: &tls.Config{
 		InsecureSkipVerify: *flagNoVerify,
 	},
@@ -78,6 +69,7 @@ func connect(ctx context.Context, s *url.URL) (*websocket.Conn, error) {
 	return conn, err
 }
 
+// formatMessage reports a WireMeasurement in a human readable format.
 func formatMessage(prefix string, stream int, m model.WireMeasurement) {
 	fmt.Printf("%s #%d - avg %0.2f Mbps, elapsed %0.4fs, payload r/w: %d/%d, network r/w: %d/%d kernel* r/w: %d/%d\n",
 		prefix, stream,
@@ -89,7 +81,8 @@ func formatMessage(prefix string, stream int, m model.WireMeasurement) {
 	)
 }
 
-func getServer(ctx context.Context) (*url.URL, error) {
+// getDownloadServer find a single server from given flags or Locate API.
+func getDownloadServer(ctx context.Context) (*url.URL, error) {
 	// Use explicit server if provided.
 	if flagServer.URL != nil {
 		q := flagServer.URL.Query()
@@ -113,8 +106,9 @@ func getServer(ctx context.Context) (*url.URL, error) {
 	return nil, errors.New("no server")
 }
 
+// getConn connects to a download server, returning the *websocket.Conn.
 func getConn(ctx context.Context) (*websocket.Conn, error) {
-	srv, err := getServer(ctx)
+	srv, err := getDownloadServer(ctx)
 	if err != nil {
 		return nil, err
 	}
