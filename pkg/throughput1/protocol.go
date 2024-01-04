@@ -24,17 +24,10 @@ type senderFunc func(ctx context.Context,
 	measurerCh <-chan model.Measurement, results chan<- model.WireMeasurement,
 	errCh chan<- error)
 
+// Measurer is an interface for collecting connection metrics.
 type Measurer interface {
 	Start(context.Context, net.Conn) <-chan model.Measurement
-}
-
-// DefaultMeasurer is the default throughput1 measurer that wraps the measurer
-// package's Start function.
-type DefaultMeasurer struct{}
-
-func (*DefaultMeasurer) Start(ctx context.Context,
-	c net.Conn) <-chan model.Measurement {
-	return measurer.Start(ctx, c)
+	Measure(ctx context.Context) model.Measurement
 }
 
 // Protocol is the implementation of the throughput1 protocol.
@@ -59,7 +52,7 @@ func New(conn *websocket.Conn) *Protocol {
 		connInfo: netx.ToConnInfo(conn.UnderlyingConn()),
 		// Seed randomness source with the current time.
 		rnd:      rand.New(rand.NewSource(time.Now().UnixMilli())),
-		measurer: &DefaultMeasurer{},
+		measurer: measurer.New(),
 	}
 }
 
@@ -185,6 +178,32 @@ func (p *Protocol) receiver(ctx context.Context,
 	}
 }
 
+func (p *Protocol) sendWireMeasurement(ctx context.Context, m model.Measurement) (*model.WireMeasurement, error) {
+	wm := model.WireMeasurement{}
+	p.once.Do(func() {
+		wm = p.createWireMeasurement(ctx)
+	})
+	wm.Measurement = m
+	wm.Application = model.ByteCounters{
+		BytesSent:     p.applicationBytesSent.Load(),
+		BytesReceived: p.applicationBytesReceived.Load(),
+	}
+	// Encode as JSON separately so we can read the message size before
+	// sending.
+	jsonwm, err := json.Marshal(wm)
+	if err != nil {
+		log.Printf("failed to encode measurement (ctx: %p, err: %v)", ctx, err)
+		return nil, err
+	}
+	err = p.conn.WriteMessage(websocket.TextMessage, jsonwm)
+	if err != nil {
+		log.Printf("failed to write measurement JSON (ctx: %p, err: %v)", ctx, err)
+		return nil, err
+	}
+	p.applicationBytesSent.Add(int64(len(jsonwm)))
+	return &wm, nil
+}
+
 func (p *Protocol) sendCounterflow(ctx context.Context,
 	measurerCh <-chan model.Measurement, results chan<- model.WireMeasurement,
 	errCh chan<- error) {
@@ -192,44 +211,26 @@ func (p *Protocol) sendCounterflow(ctx context.Context,
 	for {
 		select {
 		case <-ctx.Done():
+			// Attempt to send final write message before close. Ignore errors.
+			p.sendWireMeasurement(ctx, p.measurer.Measure(ctx))
 			p.close(ctx)
 			return
 		case m := <-measurerCh:
-			wm := model.WireMeasurement{}
-			p.once.Do(func() {
-				wm = p.createWireMeasurement(ctx)
-			})
-			wm.Measurement = m
-			wm.Application = model.ByteCounters{
-				BytesSent:     p.applicationBytesSent.Load(),
-				BytesReceived: p.applicationBytesReceived.Load(),
-			}
-			// Encode as JSON separately so we can read the message size before
-			// sending.
-			jsonwm, err := json.Marshal(wm)
+			wm, err := p.sendWireMeasurement(ctx, m)
 			if err != nil {
-				log.Printf("failed to encode measurement (ctx: %p, err: %v)",
-					ctx, err)
 				errCh <- err
 				return
 			}
-			err = p.conn.WriteMessage(websocket.TextMessage, jsonwm)
-			if err != nil {
-				log.Printf("failed to write measurement JSON (ctx: %p, err: %v)", ctx, err)
-				errCh <- err
-				return
-			}
-			p.applicationBytesSent.Add(int64(len(jsonwm)))
-
 			// This send is non-blocking in case there is no one to read the
 			// Measurement message and the channel's buffer is full.
 			select {
-			case results <- wm:
+			case results <- *wm:
 			default:
 			}
 
 			// End the test once enough bytes have been received.
 			if byteLimit > 0 && m.TCPInfo != nil && m.TCPInfo.BytesReceived >= byteLimit {
+				// WireMessage was just sent above, so we do not need to send another.
 				p.close(ctx)
 				return
 			}
@@ -254,39 +255,21 @@ func (p *Protocol) sender(ctx context.Context, measurerCh <-chan model.Measureme
 	for {
 		select {
 		case <-ctx.Done():
+			// Attempt to send final write message before close. Ignore errors.
+			p.sendWireMeasurement(ctx, p.measurer.Measure(ctx))
 			p.close(ctx)
 			return
 		case m := <-measurerCh:
-			wm := model.WireMeasurement{}
-			p.once.Do(func() {
-				wm = p.createWireMeasurement(ctx)
-			})
-			wm.Measurement = m
-			wm.Application = model.ByteCounters{
-				BytesReceived: p.applicationBytesReceived.Load(),
-				BytesSent:     p.applicationBytesSent.Load(),
-			}
-			// Encode as JSON separately so we can read the message size before
-			// sending.
-			jsonwm, err := json.Marshal(wm)
+			wm, err := p.sendWireMeasurement(ctx, m)
 			if err != nil {
-				log.Printf("failed to encode measurement (ctx: %p, err: %v)",
-					ctx, err)
 				errCh <- err
 				return
 			}
-			err = p.conn.WriteMessage(websocket.TextMessage, jsonwm)
-			if err != nil {
-				log.Printf("failed to write measurement JSON (ctx: %p, err: %v)", ctx, err)
-				errCh <- err
-				return
-			}
-			p.applicationBytesSent.Add(int64(len(jsonwm)))
 
 			// This send is non-blocking in case there is no one to read the
 			// Measurement message and the channel's buffer is full.
 			select {
-			case results <- wm:
+			case results <- *wm:
 			default:
 			}
 		default:
@@ -300,6 +283,11 @@ func (p *Protocol) sender(ctx context.Context, measurerCh <-chan model.Measureme
 
 			bytesSent := int(p.applicationBytesSent.Load())
 			if p.byteLimit > 0 && bytesSent >= p.byteLimit {
+				_, err := p.sendWireMeasurement(ctx, p.measurer.Measure(ctx))
+				if err != nil {
+					errCh <- err
+					return
+				}
 				p.close(ctx)
 				return
 			}
