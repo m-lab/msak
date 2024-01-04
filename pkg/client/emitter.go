@@ -51,7 +51,6 @@ func (HumanReadable) OnConnect(server string) {
 // OnMeasurement is called on received Measurement objects.
 func (HumanReadable) OnMeasurement(id int, m model.WireMeasurement) {
 	// NOTHING - don't print individual measurement objects in this Emitter.
-	fmt.Println(id, m)
 }
 
 // OnError is called on errors.
