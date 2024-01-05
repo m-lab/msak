@@ -20,11 +20,11 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-const clientName = "msak-minimal-client-go"
-
-var clientVersion = "v0.0.1"
-
-const locateURL = "https://locate.measurementlab.net/v2/nearest/"
+const (
+	clientName    = "msak-minimal-client-go"
+	clientVersion = "v0.0.1"
+	locateURL     = "https://locate.measurementlab.net/v2/nearest/"
+)
 
 var (
 	flagCC        = flag.String("cc", "bbr", "Congestion control algorithm to use")
@@ -40,6 +40,9 @@ var (
 // WireMeasurement is a wrapper for Measurement structs that contains
 // information about this TCP stream that does not need to be sent every time.
 // Every field except for Measurement is only expected to be non-empty once.
+//
+// Find the authoritative structures in:
+// * github.com/m-lab/msak/pkg/throughput1/model/measurement.go
 type WireMeasurement struct {
 	// CC is the congestion control used by the sender of this WireMeasurement.
 	CC string `json:",omitempty"`
@@ -60,28 +63,37 @@ type Measurement struct {
 	Application ByteCounters
 	// Network contains the network-level BytesSent/Received pair.
 	Network ByteCounters
-
 	// ElapsedTime is the time elapsed since the start of the measurement
 	// according to the party sending this Measurement.
 	ElapsedTime int64 `json:",omitempty"`
-
 	// BBRInfo is an optional struct containing BBR metrics. Only applicable
 	// when the congestion control algorithm used by the party sending this
-	// Measurement is BBR.
+	// Measurement is BBR. WARNING: field types are approximate.
 	BBRInfo map[string]int64 `json:",omitempty"`
-
 	// TCPInfo is an optional struct containing some of the TCP_INFO kernel
 	// metrics for this TCP stream. Only applicable when the party sending this
-	// Measurement has access to it.
+	// Measurement has access to it. WARNING: field types are approximate.
 	TCPInfo map[string]int64 `json:",omitempty"`
 }
 
 type ByteCounters struct {
 	// BytesSent is the number of bytes sent.
 	BytesSent int64 `json:",omitempty"`
-
 	// BytesReceived is the number of bytes received.
 	BytesReceived int64 `json:",omitempty"`
+}
+
+// NearestResult is returned by the Locate API in response to query requests.
+type NearestResult struct {
+	// Results contains an array of Targets matching the client request.
+	Results []Target `json:"results,omitempty"`
+}
+
+// Target is returned by the Locate API.
+type Target struct {
+	// URLs contains measurement service resource names and the complete URL for
+	// running a measurement.
+	URLs map[string]string `json:"urls"`
 }
 
 // localDialer allows insecure TLS for explicit servers.
@@ -125,21 +137,8 @@ func formatMessage(prefix string, stream int, m WireMeasurement) {
 	)
 }
 
-// Target is returned by the Locate API.
-type Target struct {
-	// URLs contains measurement service resource names and the complete URL for
-	// running a measurement.
-	URLs map[string]string `json:"urls"`
-}
-
-// NearestResult is returned by the location service in response to query
-// requests.
-type NearestResult struct {
-	// Results contains an array of Targets matching the client request.
-	Results []Target `json:"results,omitempty"`
-}
-
-func locateServers(ctx context.Context, userAgent, locate string) ([]Target, error) {
+// locateGetServers contacts the Locate API for a set of healthy servers.
+func locateGetServers(ctx context.Context, userAgent, locate string) ([]Target, error) {
 	u, err := url.Parse(*flagLocateURL)
 	if err != nil {
 		return nil, err
@@ -147,11 +146,10 @@ func locateServers(ctx context.Context, userAgent, locate string) ([]Target, err
 	u.Path = path.Join(u.Path, locate)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
-		// e.g. due to an invalid parameter.
 		return nil, err
 	}
 	if userAgent == "" {
-		// user agent is required.
+		// User agent is required.
 		return nil, errors.New("no user agent given")
 	}
 	req.Header.Set("User-Agent", userAgent)
@@ -187,7 +185,7 @@ func getDownloadServer(ctx context.Context) (*url.URL, error) {
 	}
 
 	// Use Locate API to request otherwise.
-	targets, err := locateServers(ctx, clientName+"/"+clientVersion, "msak/throughput1")
+	targets, err := locateGetServers(ctx, clientName+"/"+clientVersion, "msak/throughput1")
 	if err != nil {
 		return nil, err
 	}
