@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	clientName    = "msak-minimal-client-go"
+	clientName    = "msak-minimal-download-go"
 	clientVersion = "v0.0.1"
 	locateURL     = "https://locate.measurementlab.net/v2/nearest/"
 )
