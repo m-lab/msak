@@ -64,3 +64,13 @@ Elapsed: 0.90s, Goodput: 19363.955232 Mb/s, MinRTT: 0
 Elapsed: 1.00s, Goodput: 17431.176757 Mb/s, MinRTT: 0
 Stream 0 complete (server localhost:8080)
 ```
+
+To build the minimal client and target the local server:
+
+```sh
+$ minimal-client -duration 1s -server.url ws://localhost:8080/throughput/v1/download
+Server #1 - avg 40331.74 Mbps, elapsed 0.1096s, payload r/w: 0/553648128, network r/w: 0/552605286 kernel* r/w: 532/556927351
+Server #1 - avg 37079.39 Mbps, elapsed 0.5090s, payload r/w: 0/2360345763, network r/w: 0/2359320155 kernel* r/w: 532/2371631146
+Server #1 - avg 37434.47 Mbps, elapsed 0.7453s, payload r/w: 0/3488615636, network r/w: 0/3487600796 kernel* r/w: 532/3504496455
+Server #1 - avg 37546.81 Mbps, elapsed 0.8448s, payload r/w: 0/3965718768, network r/w: 0/3964708482 kernel* r/w: 532/3982651869
+```
