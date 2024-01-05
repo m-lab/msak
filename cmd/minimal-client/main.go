@@ -104,6 +104,11 @@ var localDialer = &websocket.Dialer{
 	},
 }
 
+func init() {
+	// Disable all prefixing for logging.
+	log.SetFlags(0)
+}
+
 // connect to the given msak server URL, returning a *websocket.Conn.
 func connect(ctx context.Context, s *url.URL) (*websocket.Conn, error) {
 	q := s.Query()
