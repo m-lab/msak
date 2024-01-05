@@ -132,7 +132,7 @@ func connect(ctx context.Context, s *url.URL) (*websocket.Conn, error) {
 
 // formatMessage reports a WireMeasurement in a human readable format.
 func formatMessage(prefix string, stream int, m WireMeasurement) {
-	log.Printf("%s #%d - avg %0.2f Mbps, elapsed %0.4fs, payload r/w: %d/%d, network r/w: %d/%d kernel* r/w: %d/%d\n",
+	log.Printf("%s #%d - avg %0.2f Mbps, elapsed %0.4fs, application r/w: %d/%d, network r/w: %d/%d kernel* r/w: %d/%d\n",
 		prefix, stream,
 		8*float64(m.Network.BytesSent)/(float64(m.ElapsedTime)),
 		float64(m.ElapsedTime)/1000000.0,
