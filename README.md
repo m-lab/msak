@@ -68,6 +68,8 @@ Stream 0 complete (server localhost:8080)
 To build the minimal client and target the local server:
 
 ```sh
+$ go install github.com/m-lab/msak/cmd/minimal-client@latest
+...
 $ minimal-client -duration 1s -server.url ws://localhost:8080/throughput/v1/download
 Server #1 - avg 40331.74 Mbps, elapsed 0.1096s, payload r/w: 0/553648128, network r/w: 0/552605286 kernel* r/w: 532/556927351
 Server #1 - avg 37079.39 Mbps, elapsed 0.5090s, payload r/w: 0/2360345763, network r/w: 0/2359320155 kernel* r/w: 532/2371631146
