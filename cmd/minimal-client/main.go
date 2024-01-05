@@ -29,11 +29,11 @@ const (
 var (
 	flagCC        = flag.String("cc", "bbr", "Congestion control algorithm to use")
 	flagDuration  = flag.Duration("duration", 5*time.Second, "Length of the last stream")
-	flagScheme    = flag.String("scheme", "wss", "Websocket scheme (wss or ws)")
-	flagNoVerify  = flag.Bool("no-verify", false, "Skip TLS certificate verification")
 	flagByteLimit = flag.Int("bytes", 0, "Byte limit to request to the server")
+	flagNoVerify  = flag.Bool("no-verify", false, "Skip TLS certificate verification")
 	flagServerURL = flag.String("server.url", "", "URL to directly target")
 	flagMID       = flag.String("mid", uuid.NewString(), "Measurement ID to use")
+	flagScheme    = flag.String("scheme", "wss", "Websocket scheme (wss or ws)")
 	flagLocateURL = flag.String("locate.url", locateURL, "The base url for the Locate API")
 )
 
