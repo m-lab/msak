@@ -81,7 +81,7 @@ Download #1 - Avg 34353.74 Mbps, MinRTT  0.00ms, elapsed 1.0024s, application r/
 
 
 # Remote with time limit.
-$ minimal-download -duration 1s -locate.url https://locate-dot-mlab-staging.appspot.com/v2/nearest
+$ minimal-download -duration 1s
 Download #1 - rate 239.68 Mbps, rtt 13.96ms, elapsed 0.1014s, application r/w: 0/6815744, network r/w: 0/6400516 kernel* r/w: 1304/3039466
 Download #1 - rate 375.56 Mbps, rtt 15.13ms, elapsed 0.2024s, application r/w: 0/13632647, network r/w: 0/13112011 kernel* r/w: 1304/9503338
 Download #1 - rate 429.03 Mbps, rtt 19.15ms, elapsed 0.3034s, application r/w: 0/19925135, network r/w: 0/19298323 kernel* r/w: 1304/16271290
