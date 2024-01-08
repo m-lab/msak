@@ -103,7 +103,7 @@ added before being sent to the Linux kernel (network), or after the Linux kernel
 sends over the physical network and before the remote client acknowledges the
 bytes received (kernel).
 
-The maximum difference between the application and network sent sizes should be
+> The maximum difference between the application and network sent sizes should be
 equal to the `spec.MaxScaledMessageSize` + WebSocket/TLS headers size, which
 should typically be below 1MB, and the maximum difference between the network
 and kernel sent sizes should equal the Linux kernel buffers plus the network's
