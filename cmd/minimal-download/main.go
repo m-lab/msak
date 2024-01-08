@@ -134,9 +134,9 @@ func connect(ctx context.Context, s *url.URL) (*websocket.Conn, error) {
 func formatMessage(prefix string, stream int, m WireMeasurement) {
 	log.Printf("%s #%d - rate %0.2f Mbps, rtt %5.2fms, elapsed %0.4fs, application r/w: %d/%d, network r/w: %d/%d kernel* r/w: %d/%d\n",
 		prefix, stream,
-		8*float64(m.Network.BytesSent)/(float64(m.ElapsedTime)), // to mbps.
-		float64(m.TCPInfo["RTT"])/1000.0,                        // to ms.
-		float64(m.ElapsedTime)/1000000.0,                        // to sec.
+		8*float64(m.TCPInfo["BytesAcked"])/(float64(m.ElapsedTime)), // to mbps.
+		float64(m.TCPInfo["RTT"])/1000.0,                            // to ms.
+		float64(m.ElapsedTime)/1000000.0,                            // to sec.
 		m.Application.BytesReceived, m.Application.BytesSent,
 		m.Network.BytesReceived, m.Network.BytesSent,
 		m.TCPInfo["BytesReceived"], m.TCPInfo["BytesAcked"],
