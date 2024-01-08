@@ -79,7 +79,6 @@ Download server #1 - rate 34451.50 Mbps, rtt  0.04ms, elapsed 0.7029s, applicati
 Download server #1 - rate 34387.62 Mbps, rtt  0.03ms, elapsed 1.0008s, application r/w: 0/4304408743, network r/w: 0/4304450273 kernel* r/w: 538/4301737109
 Download client #1 - Avg 34353.74 Mbps, MinRTT  0.00ms, elapsed 1.0024s, application r/w: 0/4304409778
 
-
 # Remote with time limit.
 $ minimal-download -duration 1s
 Download server #1 - rate 239.68 Mbps, rtt 13.96ms, elapsed 0.1014s, application r/w: 0/6815744, network r/w: 0/6400516 kernel* r/w: 1304/3039466
