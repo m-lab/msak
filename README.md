@@ -91,11 +91,15 @@ Server #1 - avg 96.87 Mbps, elapsed 0.0136s, application r/w: 0/150000, network 
 ```
 
 > NOTE: the application, network, and kernel metrics may differ to the degree
-that some data is still buffered between layers. For example, after a websocket
-write but before written to the network layer, or after network layer write but
-before the Linux kernel has sent it to the physical network.
+that some data is buffered, or includes added headers, or is traversing the
+physical network itself. For example, after a websocket write and before
+TLS/WebSocket headers are added (application), after TLS/WebSocket headers are
+added before being sent to the Linux kernel (network), or after the Linux kernel
+sends over the physical network and before the remote client acknowledges the
+bytes received (kernel).
 
 The maximum difference between the application and network sent sizes should be
-equal to the `spec.MaxScaledMessageSize` or 1MB, and the maximum difference
-between the network and kernel sent sizes should equal the kernel's write
-buffer, typically between 64K and 4MB. Localhost behaves differently.
+equal to the `spec.MaxScaledMessageSize` + WebSocket/TLS headers size, which
+should typically be below 1MB, and the maximum difference between the network
+and kernel sent sizes should equal the Linux kernel buffers plus the network's
+bandwidth delay product. Typically values range between 64k and 4MB or more.
