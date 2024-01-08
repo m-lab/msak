@@ -95,7 +95,9 @@ Download server #1 - rate 8.24 Mbps, rtt 12.17ms, elapsed 0.0128s, application r
 Download client #1 - Avg 30.51 Mbps, MinRTT 10.99ms, elapsed 0.0433s, application r/w: 0/164972
 ```
 
-> NOTE: the application, network, and kernel metrics may differ to the degree
+## Measurements
+
+The application, network, and kernel metrics may differ to the degree
 that some data is buffered, or includes added headers, or is traversing the
 physical network itself. For example, after a websocket write and before
 TLS/WebSocket headers are added (application), after TLS/WebSocket headers are
@@ -103,7 +105,7 @@ added before being sent to the Linux kernel (network), or after the Linux kernel
 sends over the physical network and before the remote client acknowledges the
 bytes received (kernel).
 
-> The maximum difference between the application and network sent sizes should be
+The maximum difference between the application and network sent sizes should be
 equal to the `spec.MaxScaledMessageSize` + WebSocket/TLS headers size, which
 should typically be below 1MB, and the maximum difference between the network
 and kernel sent sizes should equal the Linux kernel buffers plus the network's
