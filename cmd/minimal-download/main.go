@@ -138,7 +138,7 @@ func formatMessage(prefix string, stream int, m WireMeasurement) {
 		float64(m.ElapsedTime)/1000000.0,
 		m.Application.BytesReceived, m.Application.BytesSent,
 		m.Network.BytesReceived, m.Network.BytesSent,
-		m.TCPInfo["BytesReceived"], m.TCPInfo["BytesSent"],
+		m.TCPInfo["BytesReceived"], m.TCPInfo["BytesAcked"],
 	)
 }
 
@@ -216,7 +216,7 @@ func getConn(ctx context.Context) (*websocket.Conn, error) {
 func main() {
 	flag.Parse()
 
-	ctx, cancel := context.WithTimeout(context.Background(), *flagDuration)
+	ctx, cancel := context.WithTimeout(context.Background(), *flagDuration*2)
 	defer cancel()
 
 	conn, err := getConn(ctx)
@@ -226,23 +226,25 @@ func main() {
 	defer conn.Close()
 
 	// Max runtime.
-	deadline := time.Now().Add(2 * *flagDuration)
+	deadline := time.Now().Add(*flagDuration * 2)
 	conn.SetWriteDeadline(deadline)
 	conn.SetReadDeadline(deadline)
 
 	// receive from text & binary messages from conn until the context expires or conn closes.
 	var applicationBytesReceived int64
+	start := time.Now()
+outer:
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			break outer
 		default:
 			kind, reader, err := conn.NextReader()
 			if err != nil {
 				if !websocket.IsCloseError(err, websocket.CloseNormalClosure) {
 					log.Println("error", err)
 				}
-				return
+				break outer
 			}
 			switch kind {
 			case websocket.BinaryMessage:
@@ -266,8 +268,12 @@ func main() {
 					log.Println("error", err)
 					return
 				}
-				formatMessage("Server", 1, m)
+				formatMessage("Download", 1, m)
 			}
 		}
 	}
+	since := time.Since(start)
+	log.Printf("Download #1 - avg %0.2f Mbps, elapsed %0.4fs, application r/w: %d/%d\n",
+		8*float64(applicationBytesReceived)/1e6/since.Seconds(),
+		since.Seconds(), 0, applicationBytesReceived)
 }
