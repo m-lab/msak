@@ -72,22 +72,28 @@ $ go install github.com/m-lab/msak/cmd/minimal-download@latest
 ...
 # Local
 $ minimal-download -duration 1s -server.url ws://localhost:8080/throughput/v1/download
-Server #1 - avg 40331.74 Mbps, elapsed 0.1096s, application r/w: 0/553648128, network r/w: 0/552605286 kernel* r/w: 532/556927351
-Server #1 - avg 37079.39 Mbps, elapsed 0.5090s, application r/w: 0/2360345763, network r/w: 0/2359320155 kernel* r/w: 532/2371631146
-Server #1 - avg 37434.47 Mbps, elapsed 0.7453s, application r/w: 0/3488615636, network r/w: 0/3487600796 kernel* r/w: 532/3504496455
-Server #1 - avg 37546.81 Mbps, elapsed 0.8448s, application r/w: 0/3965718768, network r/w: 0/3964708482 kernel* r/w: 532/3982651869
+Download #1 - rate 37646.34 Mbps, rtt  0.03ms, elapsed 0.2005s, application r/w: 0/944766976, network r/w: 0/943727864 kernel* r/w: 538/940629967
+Download #1 - rate 36690.44 Mbps, rtt  0.02ms, elapsed 0.6009s, application r/w: 0/2756707483, network r/w: 0/2755685655 kernel* r/w: 538/2752249838
+Download #1 - rate 34228.14 Mbps, rtt  0.06ms, elapsed 0.8259s, application r/w: 0/3534752935, network r/w: 0/3533738535 kernel* r/w: 538/3530874047
+Download #1 - rate 34016.59 Mbps, rtt  0.04ms, elapsed 0.9253s, application r/w: 0/3935309999, network r/w: 0/3934299423 kernel* r/w: 538/3931040660
+Download #1 - rate 33946.60 Mbps, rtt  0.02ms, elapsed 1.0006s, application r/w: 0/4245689527, network r/w: 0/4245730501 kernel* r/w: 538/4243256029
+Download #1 - Avg 33882.39 Mbps, MinRTT  0.00ms, elapsed 1.0025s, application r/w: 0/4245690561
+
 
 # Remote with time limit.
 $ minimal-download -duration 1s
-Server #1 - avg 474.48 Mbps, elapsed 0.1372s, application r/w: 0/8388608, network r/w: 0/8139648 kernel* r/w: 1291/5153552
-Server #1 - avg 472.38 Mbps, elapsed 0.4943s, application r/w: 0/29361290, network r/w: 0/29190374 kernel* r/w: 1291/28353408
-Server #1 - avg 482.33 Mbps, elapsed 0.5944s, application r/w: 0/36702361, network r/w: 0/35836093 kernel* r/w: 1291/35130048
-Server #1 - avg 509.56 Mbps, elapsed 0.7313s, application r/w: 0/47189162, network r/w: 0/46583410 kernel* r/w: 1291/44773728
-Server #1 - avg 511.57 Mbps, elapsed 0.9314s, application r/w: 0/59773113, network r/w: 0/59562005 kernel* r/w: 1291/57740568
+Download #1 - rate 469.19 Mbps, rtt 11.89ms, elapsed 0.2012s, application r/w: 0/12582912, network r/w: 0/11798314 kernel* r/w: 1304/8338096
+Download #1 - rate 506.90 Mbps, rtt 22.16ms, elapsed 0.4679s, application r/w: 0/30409859, network r/w: 0/29649767 kernel* r/w: 1304/26703080
+Download #1 - rate 517.75 Mbps, rtt 15.57ms, elapsed 0.7783s, application r/w: 0/50333840, network r/w: 0/50372216 kernel* r/w: 1304/47179248
+Download #1 - rate 514.20 Mbps, rtt 17.25ms, elapsed 0.8789s, application r/w: 0/56626332, network r/w: 0/56492908 kernel* r/w: 1304/53583752
+Download #1 - rate 513.92 Mbps, rtt 16.05ms, elapsed 0.9798s, application r/w: 0/62918825, network r/w: 0/62941721 kernel* r/w: 1304/60156224
+Download #1 - rate 516.71 Mbps, rtt 15.96ms, elapsed 1.0080s, application r/w: 0/65017014, network r/w: 0/65108472 kernel* r/w: 1304/61950296
+Download #1 - Avg 495.42 Mbps, MinRTT  4.28ms, elapsed 1.0499s, application r/w: 0/65018054
 
 # Remote with bytes limit.
 $ minimal-download -bytes=150000
-Server #1 - avg 96.87 Mbps, elapsed 0.0136s, application r/w: 0/150000, network r/w: 0/164976 kernel* r/w: 1309/31063
+Download #1 - rate 110.47 Mbps, rtt 11.70ms, elapsed 0.0119s, application r/w: 0/150000, network r/w: 0/164976 kernel* r/w: 1309/14594
+Download #1 - Avg 34.14 Mbps, MinRTT 10.05ms, elapsed 0.0387s, application r/w: 0/164974
 ```
 
 > NOTE: the application, network, and kernel metrics may differ to the degree
