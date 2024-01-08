@@ -132,10 +132,11 @@ func connect(ctx context.Context, s *url.URL) (*websocket.Conn, error) {
 
 // formatMessage reports a WireMeasurement in a human readable format.
 func formatMessage(prefix string, stream int, m WireMeasurement) {
-	log.Printf("%s #%d - avg %0.2f Mbps, elapsed %0.4fs, application r/w: %d/%d, network r/w: %d/%d kernel* r/w: %d/%d\n",
+	log.Printf("%s #%d - rate %0.2f Mbps, rtt %5.2fms, elapsed %0.4fs, application r/w: %d/%d, network r/w: %d/%d kernel* r/w: %d/%d\n",
 		prefix, stream,
-		8*float64(m.Network.BytesSent)/(float64(m.ElapsedTime)),
-		float64(m.ElapsedTime)/1000000.0,
+		8*float64(m.Network.BytesSent)/(float64(m.ElapsedTime)), // to mbps.
+		float64(m.TCPInfo["RTT"])/1000.0,                        // to ms.
+		float64(m.ElapsedTime)/1000000.0,                        // to sec.
 		m.Application.BytesReceived, m.Application.BytesSent,
 		m.Network.BytesReceived, m.Network.BytesSent,
 		m.TCPInfo["BytesReceived"], m.TCPInfo["BytesAcked"],
@@ -232,6 +233,7 @@ func main() {
 
 	// receive from text & binary messages from conn until the context expires or conn closes.
 	var applicationBytesReceived int64
+	var minRTT int64
 	start := time.Now()
 outer:
 	for {
@@ -269,11 +271,13 @@ outer:
 					return
 				}
 				formatMessage("Download", 1, m)
+				minRTT = m.TCPInfo["MinRTT"]
 			}
 		}
 	}
 	since := time.Since(start)
-	log.Printf("Download #1 - avg %0.2f Mbps, elapsed %0.4fs, application r/w: %d/%d\n",
-		8*float64(applicationBytesReceived)/1e6/since.Seconds(),
+	log.Printf("Download #1 - rate %0.2f Mbps, rtt %5.2fms, elapsed %0.4fs, application r/w: %d/%d\n",
+		8*float64(applicationBytesReceived)/1e6/since.Seconds(), // as mbps.
+		float64(minRTT)/1000.0, // as ms.
 		since.Seconds(), 0, applicationBytesReceived)
 }
