@@ -276,7 +276,7 @@ outer:
 		}
 	}
 	since := time.Since(start)
-	log.Printf("Download #1 - rate %0.2f Mbps, rtt %5.2fms, elapsed %0.4fs, application r/w: %d/%d\n",
+	log.Printf("Download #1 - Avg %0.2f Mbps, MinRTT %5.2fms, elapsed %0.4fs, application r/w: %d/%d\n",
 		8*float64(applicationBytesReceived)/1e6/since.Seconds(), // as mbps.
 		float64(minRTT)/1000.0, // as ms.
 		since.Seconds(), 0, applicationBytesReceived)
