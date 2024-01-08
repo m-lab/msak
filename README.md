@@ -72,28 +72,28 @@ $ go install github.com/m-lab/msak/cmd/minimal-download@latest
 ...
 # Local
 $ minimal-download -duration 1s -server.url ws://localhost:8080/throughput/v1/download
-Download #1 - rate 37646.34 Mbps, rtt  0.03ms, elapsed 0.2005s, application r/w: 0/944766976, network r/w: 0/943727864 kernel* r/w: 538/940629967
-Download #1 - rate 36690.44 Mbps, rtt  0.02ms, elapsed 0.6009s, application r/w: 0/2756707483, network r/w: 0/2755685655 kernel* r/w: 538/2752249838
-Download #1 - rate 34228.14 Mbps, rtt  0.06ms, elapsed 0.8259s, application r/w: 0/3534752935, network r/w: 0/3533738535 kernel* r/w: 538/3530874047
-Download #1 - rate 34016.59 Mbps, rtt  0.04ms, elapsed 0.9253s, application r/w: 0/3935309999, network r/w: 0/3934299423 kernel* r/w: 538/3931040660
-Download #1 - rate 33946.60 Mbps, rtt  0.02ms, elapsed 1.0006s, application r/w: 0/4245689527, network r/w: 0/4245730501 kernel* r/w: 538/4243256029
-Download #1 - Avg 33882.39 Mbps, MinRTT  0.00ms, elapsed 1.0025s, application r/w: 0/4245690561
+Download #1 - rate 34215.33 Mbps, rtt  0.04ms, elapsed 0.1009s, application r/w: 0/436207616, network r/w: 0/435163654 kernel* r/w: 538/431369776
+Download #1 - rate 33915.22 Mbps, rtt  0.02ms, elapsed 0.2009s, application r/w: 0/856687767, network r/w: 0/855647819 kernel* r/w: 538/851814781
+Download #1 - rate 34634.09 Mbps, rtt  0.04ms, elapsed 0.5741s, application r/w: 0/2489321624, network r/w: 0/2488297250 kernel* r/w: 538/2485238689
+Download #1 - rate 34451.50 Mbps, rtt  0.04ms, elapsed 0.7029s, application r/w: 0/3031436447, network r/w: 0/3030417247 kernel* r/w: 538/3026848582
+Download #1 - rate 34387.62 Mbps, rtt  0.03ms, elapsed 1.0008s, application r/w: 0/4304408743, network r/w: 0/4304450273 kernel* r/w: 538/4301737109
+Download #1 - Avg 34353.74 Mbps, MinRTT  0.00ms, elapsed 1.0024s, application r/w: 0/4304409778
 
 
 # Remote with time limit.
-$ minimal-download -duration 1s
-Download #1 - rate 469.19 Mbps, rtt 11.89ms, elapsed 0.2012s, application r/w: 0/12582912, network r/w: 0/11798314 kernel* r/w: 1304/8338096
-Download #1 - rate 506.90 Mbps, rtt 22.16ms, elapsed 0.4679s, application r/w: 0/30409859, network r/w: 0/29649767 kernel* r/w: 1304/26703080
-Download #1 - rate 517.75 Mbps, rtt 15.57ms, elapsed 0.7783s, application r/w: 0/50333840, network r/w: 0/50372216 kernel* r/w: 1304/47179248
-Download #1 - rate 514.20 Mbps, rtt 17.25ms, elapsed 0.8789s, application r/w: 0/56626332, network r/w: 0/56492908 kernel* r/w: 1304/53583752
-Download #1 - rate 513.92 Mbps, rtt 16.05ms, elapsed 0.9798s, application r/w: 0/62918825, network r/w: 0/62941721 kernel* r/w: 1304/60156224
-Download #1 - rate 516.71 Mbps, rtt 15.96ms, elapsed 1.0080s, application r/w: 0/65017014, network r/w: 0/65108472 kernel* r/w: 1304/61950296
-Download #1 - Avg 495.42 Mbps, MinRTT  4.28ms, elapsed 1.0499s, application r/w: 0/65018054
+$ minimal-download -duration 1s -locate.url https://locate-dot-mlab-staging.appspot.com/v2/nearest
+Download #1 - rate 239.68 Mbps, rtt 13.96ms, elapsed 0.1014s, application r/w: 0/6815744, network r/w: 0/6400516 kernel* r/w: 1304/3039466
+Download #1 - rate 375.56 Mbps, rtt 15.13ms, elapsed 0.2024s, application r/w: 0/13632647, network r/w: 0/13112011 kernel* r/w: 1304/9503338
+Download #1 - rate 429.03 Mbps, rtt 19.15ms, elapsed 0.3034s, application r/w: 0/19925135, network r/w: 0/19298323 kernel* r/w: 1304/16271290
+Download #1 - rate 473.54 Mbps, rtt 15.88ms, elapsed 0.5237s, application r/w: 0/35654810, network r/w: 0/34737910 kernel* r/w: 1304/30997450
+Download #1 - rate 487.79 Mbps, rtt 15.34ms, elapsed 0.6464s, application r/w: 0/42995877, network r/w: 0/42564857 kernel* r/w: 1304/39414674
+Download #1 - rate 499.34 Mbps, rtt 17.36ms, elapsed 1.0154s, application r/w: 0/66065584, network r/w: 0/66158482 kernel* r/w: 1304/63380522
+Download #1 - Avg 502.43 Mbps, MinRTT  4.11ms, elapsed 1.0520s, application r/w: 0/66066624
 
 # Remote with bytes limit.
 $ minimal-download -bytes=150000
-Download #1 - rate 110.47 Mbps, rtt 11.70ms, elapsed 0.0119s, application r/w: 0/150000, network r/w: 0/164976 kernel* r/w: 1309/14594
-Download #1 - Avg 34.14 Mbps, MinRTT 10.05ms, elapsed 0.0387s, application r/w: 0/164974
+Download #1 - rate 8.24 Mbps, rtt 12.17ms, elapsed 0.0128s, application r/w: 0/150000, network r/w: 0/164976 kernel* r/w: 1309/13146
+Download #1 - Avg 30.51 Mbps, MinRTT 10.99ms, elapsed 0.0433s, application r/w: 0/164972
 ```
 
 > NOTE: the application, network, and kernel metrics may differ to the degree
