@@ -157,6 +157,9 @@ func TestHandler_Result(t *testing.T) {
 			rw.Result().StatusCode)
 	}
 
+	// Delay return to allow handler go routines to settle.
+	// TODO: add complete shutdown of handler to prevent flaky tests.
+	time.Sleep(100 * time.Millisecond)
 }
 
 func TestHandler_processPacket(t *testing.T) {
