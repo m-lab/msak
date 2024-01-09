@@ -247,7 +247,6 @@ func (p *Protocol) sender(ctx context.Context, measurerCh <-chan model.Measureme
 		errCh <- err
 		return
 	}
-	messageSize := size
 
 	// Prepared (binary) messages and Measurement messages are written to the
 	// same socket. This means the speed at which we can send measurements is
@@ -293,6 +292,7 @@ func (p *Protocol) sender(ctx context.Context, measurerCh <-chan model.Measureme
 				return
 			}
 
+			origSize := size
 			// Determine whether it's time to scale the message size.
 			if size >= spec.MaxScaledMessageSize || size > bytesSent/spec.ScalingFraction {
 				size = p.ScaleMessage(size, bytesSent)
@@ -300,7 +300,7 @@ func (p *Protocol) sender(ctx context.Context, measurerCh <-chan model.Measureme
 				size = p.ScaleMessage(size*2, bytesSent)
 			}
 
-			if size == messageSize {
+			if size == origSize {
 				// We do not need to create a new message.
 				continue
 			}
@@ -312,7 +312,6 @@ func (p *Protocol) sender(ctx context.Context, measurerCh <-chan model.Measureme
 				errCh <- err
 				return
 			}
-			messageSize = size
 		}
 	}
 }
