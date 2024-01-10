@@ -21,10 +21,14 @@ import (
 )
 
 var (
-	flagServer = flag.String("server", "", "Server address")
+	flagServer = flagx.URL{}
 	flagScheme = flag.String("scheme", "http", "Server scheme (http|https)")
 	flagMID    = flag.String("mid", "", "MID to use")
 )
+
+func init() {
+	flag.Var(&flagServer, "server", "Server address (http[s]://server:port)")
+}
 
 func getTargetsFromLocate() []v2.Target {
 	locateV2 := locate.NewClient("msak-latency")
@@ -124,18 +128,25 @@ func main() {
 		kickoffMsg []byte
 	)
 
-	if *flagServer != "" {
+	if flagServer.URL != nil {
 		// If a server was provided, use it.
+		var scheme string
+		// Use the scheme included in the server URL, if present.
+		if flagServer.Scheme != "" {
+			scheme = flagServer.Scheme
+		} else {
+			scheme = *flagScheme
+		}
 		var err error
 		authorizeURL = &url.URL{
-			Scheme:   *flagScheme,
-			Host:     *flagServer,
+			Scheme:   scheme,
+			Host:     flagServer.Host,
 			Path:     spec.AuthorizeV1,
 			RawQuery: "mid=" + *flagMID,
 		}
 		resultURL = &url.URL{
-			Scheme:   *flagScheme,
-			Host:     *flagServer,
+			Scheme:   scheme,
+			Host:     flagServer.Host,
 			Path:     spec.ResultV1,
 			RawQuery: "mid=" + *flagMID,
 		}
