@@ -14,6 +14,8 @@ import (
 	"net/url"
 	"path"
 	"runtime"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -35,6 +37,7 @@ var (
 	flagMID       = flag.String("mid", uuid.NewString(), "Measurement ID to use")
 	flagScheme    = flag.String("scheme", "wss", "Websocket scheme (wss or ws)")
 	flagLocateURL = flag.String("locate.url", locateURL, "The base url for the Locate API")
+	flagStreams   = flag.Int("streams", 1, "The number of streams to create")
 )
 
 // WireMeasurement is a wrapper for Measurement structs that contains
@@ -205,14 +208,24 @@ func getDownloadServer(ctx context.Context) (*url.URL, error) {
 }
 
 // getConn connects to a download server, returning the *websocket.Conn.
-func getConn(ctx context.Context) (*websocket.Conn, error) {
+func getConn(ctx context.Context, streams int) ([]*websocket.Conn, error) {
 	srv, err := getDownloadServer(ctx)
 	if err != nil {
 		return nil, err
 	}
 	// Connect to server.
-	return connect(ctx, srv)
+	var conns []*websocket.Conn
+	for i := 0; i < streams; i++ {
+		conn, err := connect(ctx, srv)
+		if err != nil {
+			log.Println("skipping failed conn:", err)
+		}
+		conns = append(conns, conn)
+	}
+	return conns, nil
 }
+
+var applicationBytesReceived atomic.Int64
 
 func main() {
 	flag.Parse()
@@ -220,21 +233,43 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), *flagDuration*2)
 	defer cancel()
 
-	conn, err := getConn(ctx)
+	conns, err := getConn(ctx, *flagStreams)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer conn.Close()
+	defer func() {
+		for i := range conns {
+			conns[i].Close()
+		}
+	}()
 
 	// Max runtime.
 	deadline := time.Now().Add(*flagDuration * 2)
-	conn.SetWriteDeadline(deadline)
-	conn.SetReadDeadline(deadline)
+	for i := range conns {
+		conns[i].SetWriteDeadline(deadline)
+		conns[i].SetReadDeadline(deadline)
+	}
 
 	// receive from text & binary messages from conn until the context expires or conn closes.
-	var applicationBytesReceived int64
+	// var applicationBytesReceived int64
 	var minRTT int64
 	start := time.Now()
+	wg := &sync.WaitGroup{}
+
+	for i := range conns {
+		wg.Add(1)
+		go downloadConn(ctx, wg, start, *flagStreams, i, conns[i])
+	}
+	wg.Wait()
+
+	since := time.Since(start)
+	log.Printf("Download client #1 - Avg %0.2f Mbps, MinRTT %5.2fms, elapsed %0.4fs, application r/w: %d/%d\n",
+		8*float64(applicationBytesReceived.Load())/1e6/since.Seconds(), // as mbps.
+		float64(minRTT)/1000.0, // as ms.
+		since.Seconds(), 0, applicationBytesReceived.Load())
+}
+
+func downloadConn(ctx context.Context, wg *sync.WaitGroup, start time.Time, streamCount int, stream int, conn *websocket.Conn) {
 outer:
 	for {
 		select {
@@ -256,28 +291,33 @@ outer:
 					log.Println("error", err)
 					return
 				}
-				applicationBytesReceived += size
+				applicationBytesReceived.Add(size)
 			case websocket.TextMessage:
 				data, err := io.ReadAll(reader)
 				if err != nil {
 					log.Println("error", err)
 					return
 				}
-				applicationBytesReceived += int64(len(data))
+				applicationBytesReceived.Add(int64(len(data)))
 
 				var m WireMeasurement
 				if err := json.Unmarshal(data, &m); err != nil {
 					log.Println("error", err)
 					return
 				}
-				formatMessage("Download server", 1, m)
-				minRTT = m.TCPInfo["MinRTT"]
+				if streamCount == 1 {
+					// Use server metrics for single stream tests.
+					formatMessage("Download server", 1, m)
+				} else {
+					if stream == 0 {
+						// Only do this for one stream.
+						log.Printf("Download client #1 - Avg %0.2f Mbps, elapsed %0.4fs, application r/w: %d/%d\n",
+							8*float64(applicationBytesReceived.Load())/1e6/time.Since(start).Seconds(), // as mbps.
+							time.Since(start).Seconds(), 0, applicationBytesReceived.Load())
+					}
+				}
 			}
 		}
 	}
-	since := time.Since(start)
-	log.Printf("Download client #1 - Avg %0.2f Mbps, MinRTT %5.2fms, elapsed %0.4fs, application r/w: %d/%d\n",
-		8*float64(applicationBytesReceived)/1e6/since.Seconds(), // as mbps.
-		float64(minRTT)/1000.0, // as ms.
-		since.Seconds(), 0, applicationBytesReceived)
+	wg.Done()
 }
