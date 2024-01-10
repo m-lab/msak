@@ -212,20 +212,14 @@ func (p *Protocol) sendCounterflow(ctx context.Context,
 		select {
 		case <-ctx.Done():
 			// Attempt to send final write message before close. Ignore errors.
-			p.sendWireMeasurement(ctx, p.measurer.Measure(ctx))
+			p.sendAndPublishWireMeasurement(ctx, p.measurer.Measure(ctx), results)
 			p.close(ctx)
 			return
 		case m := <-measurerCh:
-			wm, err := p.sendWireMeasurement(ctx, m)
+			err := p.sendAndPublishWireMeasurement(ctx, m, results)
 			if err != nil {
 				errCh <- err
 				return
-			}
-			// This send is non-blocking in case there is no one to read the
-			// Measurement message and the channel's buffer is full.
-			select {
-			case results <- *wm:
-			default:
 			}
 
 			// End the test once enough bytes have been received.
@@ -236,6 +230,21 @@ func (p *Protocol) sendCounterflow(ctx context.Context,
 			}
 		}
 	}
+}
+
+func (p *Protocol) sendAndPublishWireMeasurement(ctx context.Context, m model.Measurement, results chan<- model.WireMeasurement) error {
+	wm, err := p.sendWireMeasurement(ctx, m)
+	if err != nil {
+		return err
+	}
+
+	// This send is non-blocking in case there is no one to read the
+	// Measurement message and the channel's buffer is full.
+	select {
+	case results <- *wm:
+	default:
+	}
+	return nil
 }
 
 func (p *Protocol) sender(ctx context.Context, measurerCh <-chan model.Measurement,
@@ -256,21 +265,14 @@ func (p *Protocol) sender(ctx context.Context, measurerCh <-chan model.Measureme
 		select {
 		case <-ctx.Done():
 			// Attempt to send final write message before close. Ignore errors.
-			p.sendWireMeasurement(ctx, p.measurer.Measure(ctx))
+			p.sendAndPublishWireMeasurement(ctx, p.measurer.Measure(ctx), results)
 			p.close(ctx)
 			return
 		case m := <-measurerCh:
-			wm, err := p.sendWireMeasurement(ctx, m)
+			err := p.sendAndPublishWireMeasurement(ctx, m, results)
 			if err != nil {
 				errCh <- err
 				return
-			}
-
-			// This send is non-blocking in case there is no one to read the
-			// Measurement message and the channel's buffer is full.
-			select {
-			case results <- *wm:
-			default:
 			}
 		default:
 			err = p.conn.WritePreparedMessage(message)
@@ -283,7 +285,7 @@ func (p *Protocol) sender(ctx context.Context, measurerCh <-chan model.Measureme
 
 			bytesSent := int(p.applicationBytesSent.Load())
 			if p.byteLimit > 0 && bytesSent >= p.byteLimit {
-				_, err := p.sendWireMeasurement(ctx, p.measurer.Measure(ctx))
+				err := p.sendAndPublishWireMeasurement(ctx, p.measurer.Measure(ctx), results)
 				if err != nil {
 					errCh <- err
 					return
