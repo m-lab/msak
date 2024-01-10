@@ -212,11 +212,11 @@ func (p *Protocol) sendCounterflow(ctx context.Context,
 		select {
 		case <-ctx.Done():
 			// Attempt to send final write message before close. Ignore errors.
-			p.sendAndSaveWireMessage(ctx, p.measurer.Measure(ctx), results)
+			p.sendAndPublishWireMeasurement(ctx, p.measurer.Measure(ctx), results)
 			p.close(ctx)
 			return
 		case m := <-measurerCh:
-			err := p.sendAndSaveWireMessage(ctx, m, results)
+			err := p.sendAndPublishWireMeasurement(ctx, m, results)
 			if err != nil {
 				errCh <- err
 				return
@@ -232,7 +232,7 @@ func (p *Protocol) sendCounterflow(ctx context.Context,
 	}
 }
 
-func (p *Protocol) sendAndSaveWireMessage(ctx context.Context, m model.Measurement, results chan<- model.WireMeasurement) error {
+func (p *Protocol) sendAndPublishWireMeasurement(ctx context.Context, m model.Measurement, results chan<- model.WireMeasurement) error {
 	wm, err := p.sendWireMeasurement(ctx, m)
 	if err != nil {
 		return err
@@ -265,11 +265,11 @@ func (p *Protocol) sender(ctx context.Context, measurerCh <-chan model.Measureme
 		select {
 		case <-ctx.Done():
 			// Attempt to send final write message before close. Ignore errors.
-			p.sendAndSaveWireMessage(ctx, p.measurer.Measure(ctx), results)
+			p.sendAndPublishWireMeasurement(ctx, p.measurer.Measure(ctx), results)
 			p.close(ctx)
 			return
 		case m := <-measurerCh:
-			err := p.sendAndSaveWireMessage(ctx, m, results)
+			err := p.sendAndPublishWireMeasurement(ctx, m, results)
 			if err != nil {
 				errCh <- err
 				return
@@ -285,7 +285,7 @@ func (p *Protocol) sender(ctx context.Context, measurerCh <-chan model.Measureme
 
 			bytesSent := int(p.applicationBytesSent.Load())
 			if p.byteLimit > 0 && bytesSent >= p.byteLimit {
-				err := p.sendAndSaveWireMessage(ctx, p.measurer.Measure(ctx), results)
+				err := p.sendAndPublishWireMeasurement(ctx, p.measurer.Measure(ctx), results)
 				if err != nil {
 					errCh <- err
 					return
