@@ -72,12 +72,12 @@ $ go install github.com/m-lab/msak/cmd/minimal-download@latest
 ...
 # Local
 $ minimal-download -duration 1s -server.url ws://localhost:8080/throughput/v1/download
-Download server #1 - rate 34215.33 Mbps, rtt  0.04ms, elapsed 0.1009s, application r/w: 0/436207616, network r/w: 0/435163654 kernel* r/w: 538/431369776
-Download server #1 - rate 33915.22 Mbps, rtt  0.02ms, elapsed 0.2009s, application r/w: 0/856687767, network r/w: 0/855647819 kernel* r/w: 538/851814781
-Download server #1 - rate 34634.09 Mbps, rtt  0.04ms, elapsed 0.5741s, application r/w: 0/2489321624, network r/w: 0/2488297250 kernel* r/w: 538/2485238689
-Download server #1 - rate 34451.50 Mbps, rtt  0.04ms, elapsed 0.7029s, application r/w: 0/3031436447, network r/w: 0/3030417247 kernel* r/w: 538/3026848582
-Download server #1 - rate 34387.62 Mbps, rtt  0.03ms, elapsed 1.0008s, application r/w: 0/4304408743, network r/w: 0/4304450273 kernel* r/w: 538/4301737109
-Download client #1 - Avg 34353.74 Mbps, MinRTT  0.00ms, elapsed 1.0024s, application r/w: 0/4304409778
+minimal-download -duration 1s -server.url ws://localhost:8080/throughput/v1/download
+Download server #1 - rate 35260.80 Mbps, rtt  0.03ms, elapsed 0.2076s, application r/w: 0/918552576, network r/w: 0/917513214 kernel* r/w: 538/914903145
+Download server #1 - rate 34191.58 Mbps, rtt  0.03ms, elapsed 0.5168s, application r/w: 0/2213545117, network r/w: 0/2212518109 kernel* r/w: 538/2208912708
+Download server #1 - rate 33703.03 Mbps, rtt  0.05ms, elapsed 0.9170s, application r/w: 0/3868199075, network r/w: 0/3867187851 kernel* r/w: 538/3863293895
+Download server #1 - rate 33591.42 Mbps, rtt  0.03ms, elapsed 1.0005s, application r/w: 0/4203744426, network r/w: 0/4203784992 kernel* r/w: 538/4200858760
+Download client #1 - Avg 33552.56 Mbps, MinRTT  0.00ms, elapsed 1.0023s, application r/w: 0/4203745461
 
 # Remote with time limit.
 $ minimal-download -duration 1s
@@ -92,7 +92,7 @@ Download client #1 - Avg 502.43 Mbps, MinRTT  4.11ms, elapsed 1.0520s, applicati
 # Remote with bytes limit.
 $ minimal-download -bytes=150000
 Download server #1 - rate 8.24 Mbps, rtt 12.17ms, elapsed 0.0128s, application r/w: 0/150000, network r/w: 0/164976 kernel* r/w: 1309/13146
-Download client #1 - Avg 30.51 Mbps, MinRTT 10.99ms, elapsed 0.0433s, application r/w: 0/164972
+Download client #1 - Avg 30.51 Mbps, MinRTT 10.99ms, elapsed 0.0433s, application r/w: 0/151008
 ```
 
 Every TCP connection has performance metrics accessible from the server end and

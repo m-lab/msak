@@ -292,13 +292,20 @@ func (p *Protocol) sender(ctx context.Context, measurerCh <-chan model.Measureme
 				return
 			}
 
+			origSize := size
 			// Determine whether it's time to scale the message size.
 			if size >= spec.MaxScaledMessageSize || size > bytesSent/spec.ScalingFraction {
 				size = p.ScaleMessage(size, bytesSent)
+			} else {
+				size = p.ScaleMessage(size*2, bytesSent)
+			}
+
+			if size == origSize {
+				// We do not need to create a new message.
 				continue
 			}
 
-			size = p.ScaleMessage(size*2, bytesSent)
+			// Create a new message for the new size.
 			message, err = p.makePreparedMessage(size)
 			if err != nil {
 				log.Printf("failed to make prepared message (ctx: %p, err: %v)", ctx, err)
