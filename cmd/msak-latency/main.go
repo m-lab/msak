@@ -27,7 +27,7 @@ var (
 )
 
 func init() {
-	flag.Var(&flagServer, "server", "Server address (http[s]://server:port)")
+	flag.Var(&flagServer, "server", "Server address. If a scheme is provided, it overrides -scheme.")
 }
 
 func getTargetsFromLocate() []v2.Target {
