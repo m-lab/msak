@@ -34,8 +34,8 @@ var (
 	flagByteLimit = flag.Int("bytes", 0, "Byte limit to request to the server")
 	flagNoVerify  = flag.Bool("no-verify", false, "Skip TLS certificate verification")
 	flagServerURL = flag.String("server.url", "", "URL to directly target")
-	flagMID       = flag.String("mid", uuid.NewString(), "Measurement ID to use")
-	flagScheme    = flag.String("scheme", "wss", "Websocket scheme (wss or ws)")
+	flagMID       = flag.String("server.mid", uuid.NewString(), "Measurement ID to use")
+	flagScheme    = flag.String("locate.scheme", "wss", "Websocket scheme (wss or ws)")
 	flagLocateURL = flag.String("locate.url", locateURL, "The base url for the Locate API")
 	flagStreams   = flag.Int("streams", 1, "The number of streams to create")
 )
@@ -115,7 +115,7 @@ func init() {
 // connect to the given msak server URL, returning a *websocket.Conn.
 func connect(ctx context.Context, s *url.URL) (*websocket.Conn, error) {
 	q := s.Query()
-	q.Set("streams", fmt.Sprintf("%d", 1))
+	q.Set("streams", fmt.Sprintf("%d", *flagStreams))
 	q.Set("cc", *flagCC)
 	q.Set("bytes", fmt.Sprintf("%d", *flagByteLimit))
 	q.Set("duration", fmt.Sprintf("%d", (*flagDuration).Milliseconds()))
@@ -208,69 +208,35 @@ func getDownloadServer(ctx context.Context) (*url.URL, error) {
 }
 
 // getConn connects to a download server, returning the *websocket.Conn.
-func getConn(ctx context.Context, streams int) ([]*websocket.Conn, error) {
+func getConn(ctx context.Context, streams int) ([]*websocket.Conn, time.Time, error) {
 	srv, err := getDownloadServer(ctx)
 	if err != nil {
-		return nil, err
+		return nil, time.Time{}, err
 	}
 	// Connect to server.
 	var conns []*websocket.Conn
+	var start time.Time
 	for i := 0; i < streams; i++ {
 		conn, err := connect(ctx, srv)
 		if err != nil {
 			log.Println("skipping failed conn:", err)
 		}
+		if start.Equal(time.Time{}) {
+			start = time.Now()
+		}
 		conns = append(conns, conn)
 	}
-	return conns, nil
+	return conns, start, nil
 }
 
-var applicationBytesReceived atomic.Int64
-
-func main() {
-	flag.Parse()
-
-	ctx, cancel := context.WithTimeout(context.Background(), *flagDuration*2)
-	defer cancel()
-
-	conns, err := getConn(ctx, *flagStreams)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer func() {
-		for i := range conns {
-			conns[i].Close()
-		}
-	}()
-
-	// Max runtime.
-	deadline := time.Now().Add(*flagDuration * 2)
-	for i := range conns {
-		conns[i].SetWriteDeadline(deadline)
-		conns[i].SetReadDeadline(deadline)
-	}
-
-	// receive from text & binary messages from conn until the context expires or conn closes.
-	// var applicationBytesReceived int64
-	var minRTT int64
-	start := time.Now()
-	wg := &sync.WaitGroup{}
-
-	for i := range conns {
-		wg.Add(1)
-		go downloadConn(ctx, wg, start, *flagStreams, i, conns[i])
-	}
-	wg.Wait()
-
-	since := time.Since(start)
-	log.Printf("Download client #1 - Avg %0.2f Mbps, MinRTT %5.2fms, elapsed %0.4fs, application r/w: %d/%d\n",
-		8*float64(applicationBytesReceived.Load())/1e6/since.Seconds(), // as mbps.
-		float64(minRTT)/1000.0, // as ms.
-		since.Seconds(), 0, applicationBytesReceived.Load())
+type sharedResults struct {
+	applicationBytesReceived atomic.Int64
+	minRTT                   atomic.Int64
 }
 
-func downloadConn(ctx context.Context, wg *sync.WaitGroup, start time.Time, streamCount int, stream int, conn *websocket.Conn) {
+func (s *sharedResults) downloadConn(ctx context.Context, wg *sync.WaitGroup, start time.Time, streamCount int, stream int, conn *websocket.Conn) {
 outer:
+	// receive from text & binary messages from conn until the context expires or conn closes.
 	for {
 		select {
 		case <-ctx.Done():
@@ -291,33 +257,73 @@ outer:
 					log.Println("error", err)
 					return
 				}
-				applicationBytesReceived.Add(size)
+				s.applicationBytesReceived.Add(size)
 			case websocket.TextMessage:
 				data, err := io.ReadAll(reader)
 				if err != nil {
 					log.Println("error", err)
 					return
 				}
-				applicationBytesReceived.Add(int64(len(data)))
+				s.applicationBytesReceived.Add(int64(len(data)))
 
 				var m WireMeasurement
 				if err := json.Unmarshal(data, &m); err != nil {
 					log.Println("error", err)
 					return
 				}
+				s.minRTT.Store(m.TCPInfo["MinRTT"])
+
 				if streamCount == 1 {
 					// Use server metrics for single stream tests.
 					formatMessage("Download server", 1, m)
 				} else {
-					if stream == 0 {
-						// Only do this for one stream.
-						log.Printf("Download client #1 - Avg %0.2f Mbps, elapsed %0.4fs, application r/w: %d/%d\n",
-							8*float64(applicationBytesReceived.Load())/1e6/time.Since(start).Seconds(), // as mbps.
-							time.Since(start).Seconds(), 0, applicationBytesReceived.Load())
-					}
+					//if stream == 0 {
+					// Only do this for one stream.
+					log.Printf("Download client #1 - Avg %0.2f Mbps, elapsed %0.4fs, application r/w: %d/%d\n",
+						8*float64(s.applicationBytesReceived.Load())/1e6/time.Since(start).Seconds(), // as mbps.
+						time.Since(start).Seconds(), 0, s.applicationBytesReceived.Load())
+					//}
 				}
 			}
 		}
 	}
 	wg.Done()
+}
+
+func main() {
+	flag.Parse()
+
+	ctx, cancel := context.WithTimeout(context.Background(), *flagDuration*2)
+	defer cancel()
+
+	conns, start, err := getConn(ctx, *flagStreams)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer func(c []*websocket.Conn) {
+		for i := range c {
+			c[i].Close()
+		}
+	}(conns)
+
+	// Max runtime.
+	deadline := time.Now().Add(*flagDuration * 2)
+	for i := range conns {
+		conns[i].SetWriteDeadline(deadline)
+		conns[i].SetReadDeadline(deadline)
+	}
+
+	wg := &sync.WaitGroup{}
+	s := &sharedResults{}
+	for i := range conns {
+		wg.Add(1)
+		go s.downloadConn(ctx, wg, start, *flagStreams, i, conns[i])
+	}
+	wg.Wait()
+
+	since := time.Since(start)
+	log.Printf("Download client #1 - Avg %0.2f Mbps, MinRTT %5.2fms, elapsed %0.4fs, application r/w: %d/%d\n",
+		8*float64(s.applicationBytesReceived.Load())/1e6/since.Seconds(), // as mbps.
+		float64(s.minRTT.Load())/1000.0,                                  // as ms.
+		since.Seconds(), 0, s.applicationBytesReceived.Load())
 }
