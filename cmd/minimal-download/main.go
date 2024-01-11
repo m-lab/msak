@@ -244,9 +244,20 @@ type sharedResults struct {
 	conns                    []*websocket.Conn
 	started                  bool
 	startTime                time.Time
+	stopped                  atomic.Bool // set to true after first connection closes.
+	atomic.Bool
+	stopTime time.Time
 }
 
 func (s *sharedResults) downloadConn(ctx context.Context, wg *sync.WaitGroup, start time.Time, streamCount int, stream int, conn *websocket.Conn) {
+	defer func() {
+		if !s.stopped.Load() {
+			// Stop after first connect close.
+			s.stopped.Store(true)
+			s.stopTime = time.Now()
+		}
+		wg.Done()
+	}()
 outer:
 	// receive from text & binary messages from conn until the context expires or conn closes.
 	for {
@@ -260,6 +271,10 @@ outer:
 					log.Println("error", err)
 				}
 				break outer
+			}
+			if s.stopped.Load() {
+				// Stop counting after first connection closes.
+				return
 			}
 			switch kind {
 			case websocket.BinaryMessage:
@@ -299,7 +314,6 @@ outer:
 			}
 		}
 	}
-	wg.Done()
 }
 
 func main() {
@@ -334,9 +348,9 @@ func main() {
 	}
 	wg.Wait()
 
-	since := time.Since(s.startTime)
+	elapsed := s.stopTime.Sub(s.startTime)
 	log.Printf("Download client #1 - Avg %0.2f Mbps, MinRTT %5.2fms, elapsed %0.4fs, application r/w: %d/%d\n",
-		8*float64(s.applicationBytesReceived.Load())/1e6/since.Seconds(), // as mbps.
-		float64(s.minRTT.Load())/1000.0,                                  // as ms.
-		since.Seconds(), 0, s.applicationBytesReceived.Load())
+		8*float64(s.applicationBytesReceived.Load())/1e6/elapsed.Seconds(), // as mbps.
+		float64(s.minRTT.Load())/1000.0,                                    // as ms.
+		elapsed.Seconds(), 0, s.applicationBytesReceived.Load())
 }
