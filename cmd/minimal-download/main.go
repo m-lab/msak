@@ -336,7 +336,7 @@ func main() {
 	}
 	// Get common URL and headers.
 	u, headers := prepareHeaders(ctx, srv)
-	log.Printf("Connecting: %s://%s/%s?...", srv.Scheme, srv.Host, srv.Path)
+	log.Printf("Connecting: %s://%s%s?...", srv.Scheme, srv.Host, srv.Path)
 
 	s := &sharedResults{}
 	wg := &sync.WaitGroup{}
