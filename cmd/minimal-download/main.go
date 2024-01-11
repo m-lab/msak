@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"path"
 	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -201,6 +202,10 @@ func getDownloadServer(ctx context.Context) (*url.URL, error) {
 	// Just use the first result.
 	for i := range targets {
 		srvurl := targets[i].URLs[*flagScheme+":///throughput/v1/download"]
+		if strings.Contains(srvurl, "lga06") {
+			log.Println("skipping lga06")
+			continue
+		}
 		// Get server url.
 		return url.Parse(srvurl)
 	}
@@ -314,7 +319,7 @@ outer:
 					s.mu.Lock()
 					elapsed := time.Since(s.firstStartTime)
 					s.mu.Unlock()
-					log.Printf("Download client #1 - Avg %0.2f Mbps, MinRTT %5.2fms, elapsed %0.4fs, application r/w: %d/%d\n",
+					log.Printf("Download client #1 - Avg  %0.2f Mbps, MinRTT %5.2fms, elapsed %0.4fs, application r/w: %d/%d\n",
 						8*float64(s.bytesTotal.Load())/1e6/elapsed.Seconds(), // as mbps.
 						float64(s.minRTT.Load())/1000.0,                      // as ms.
 						elapsed.Seconds(), 0, s.bytesTotal.Load())
@@ -327,7 +332,7 @@ outer:
 func main() {
 	flag.Parse()
 
-	ctx, cancel := context.WithTimeout(context.Background(), *flagDuration*2)
+	ctx, cancel := context.WithTimeout(context.Background(), *flagMaxDuration)
 	defer cancel()
 
 	srv, err := getDownloadServer(ctx)
@@ -336,6 +341,7 @@ func main() {
 	}
 	// Get common URL and headers.
 	u, headers := prepareHeaders(ctx, srv)
+	log.Printf("Connecting: %s://%s/%s", srv.Scheme, srv.Host, srv.Path)
 
 	s := &sharedResults{}
 	wg := &sync.WaitGroup{}
