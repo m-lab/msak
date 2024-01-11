@@ -222,12 +222,12 @@ func (s *sharedResults) getConn(ctx context.Context, streams int) error {
 			if err != nil {
 				log.Println("skipping failed conn:", err)
 			}
-			s.mu.Lock()
+			s.mu.Lock() // protect conns and startTime.
 			s.conns = append(s.conns, conn)
-			if !s.started {
+			if !s.started.Load() {
+				s.started.Store(true)
 				// record start time as first open connection.
 				s.startTime = time.Now()
-				s.started = true
 			}
 			s.mu.Unlock()
 			wg.Done()
@@ -242,20 +242,21 @@ type sharedResults struct {
 	minRTT                   atomic.Int64
 	mu                       sync.Mutex
 	conns                    []*websocket.Conn
-	started                  bool
+	started                  atomic.Bool // set true after first connection opens.
 	startTime                time.Time
-	stopped                  atomic.Bool // set to true after first connection closes.
-	atomic.Bool
-	stopTime time.Time
+	stopped                  atomic.Bool // set true after first connection closes (may be different than start conn).
+	stopTime                 time.Time
 }
 
 func (s *sharedResults) downloadConn(ctx context.Context, wg *sync.WaitGroup, start time.Time, streamCount int, stream int, conn *websocket.Conn) {
 	defer func() {
+		s.mu.Lock() // protect stopTime.
 		if !s.stopped.Load() {
 			// Stop after first connect close.
 			s.stopped.Store(true)
 			s.stopTime = time.Now()
 		}
+		s.mu.Unlock()
 		wg.Done()
 	}()
 outer:
@@ -332,7 +333,6 @@ func main() {
 			c[i].Close()
 		}
 	}(s.conns)
-	// start2 := time.Now()
 
 	// Max runtime.
 	deadline := time.Now().Add(*flagDuration * 2)
