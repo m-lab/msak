@@ -113,7 +113,7 @@ func init() {
 }
 
 // connect to the given msak server URL, returning a *websocket.Conn.
-func connect(ctx context.Context, s *url.URL) (*websocket.Conn, error) {
+func prepareHeaders(ctx context.Context, s *url.URL) (string, http.Header) {
 	q := s.Query()
 	q.Set("streams", fmt.Sprintf("%d", *flagStreams))
 	q.Set("cc", *flagCC)
@@ -129,7 +129,11 @@ func connect(ctx context.Context, s *url.URL) (*websocket.Conn, error) {
 	headers := http.Header{}
 	headers.Add("Sec-WebSocket-Protocol", "net.measurementlab.throughput.v1")
 	headers.Add("User-Agent", clientName+"/"+clientVersion)
-	conn, _, err := localDialer.DialContext(ctx, s.String(), headers)
+	return s.String(), headers
+}
+
+func connect(ctx context.Context, u string, headers http.Header) (*websocket.Conn, error) {
+	conn, _, err := localDialer.DialContext(ctx, u, headers)
 	return conn, err
 }
 
@@ -213,12 +217,14 @@ func (s *sharedResults) getConn(ctx context.Context, streams int) error {
 	if err != nil {
 		return err
 	}
-	// Connect to server.
+	// Get common URL and headers.
+	u, headers := prepareHeaders(ctx, srv)
+	// Connect to server N times.
 	wg := &sync.WaitGroup{}
 	for i := 0; i < streams; i++ {
 		wg.Add(1)
 		go func() {
-			conn, err := connect(ctx, srv)
+			conn, err := connect(ctx, u, headers)
 			if err != nil {
 				log.Println("skipping failed conn:", err)
 			}
