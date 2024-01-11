@@ -301,16 +301,16 @@ outer:
 				}
 				s.minRTT.Store(m.TCPInfo["MinRTT"])
 
-				if streamCount == 1 {
+				switch {
+				case streamCount == 1:
 					// Use server metrics for single stream tests.
 					formatMessage("Download server", 1, m)
-				} else {
-					if stream == 0 {
-						// Only do this for one stream.
-						log.Printf("Download client #1 - Avg %0.2f Mbps, elapsed %0.4fs, application r/w: %d/%d\n",
-							8*float64(s.applicationBytesReceived.Load())/1e6/time.Since(start).Seconds(), // as mbps.
-							time.Since(start).Seconds(), 0, s.applicationBytesReceived.Load())
-					}
+				case streamCount > 1 && stream == 0:
+					// Only do this for one stream.
+					elapsed := time.Since(start)
+					log.Printf("Download client #1 - Avg %0.2f Mbps, elapsed %0.4fs, application r/w: %d/%d\n",
+						8*float64(s.applicationBytesReceived.Load())/1e6/elapsed.Seconds(), // as mbps.
+						elapsed.Seconds(), 0, s.applicationBytesReceived.Load())
 				}
 			}
 		}
