@@ -208,30 +208,42 @@ func getDownloadServer(ctx context.Context) (*url.URL, error) {
 }
 
 // getConn connects to a download server, returning the *websocket.Conn.
-func getConn(ctx context.Context, streams int) ([]*websocket.Conn, time.Time, error) {
+func (s *sharedResults) getConn(ctx context.Context, streams int) error {
 	srv, err := getDownloadServer(ctx)
 	if err != nil {
-		return nil, time.Time{}, err
+		return err
 	}
 	// Connect to server.
-	var conns []*websocket.Conn
-	var start time.Time
+	wg := &sync.WaitGroup{}
 	for i := 0; i < streams; i++ {
-		conn, err := connect(ctx, srv)
-		if err != nil {
-			log.Println("skipping failed conn:", err)
-		}
-		if start.Equal(time.Time{}) {
-			start = time.Now()
-		}
-		conns = append(conns, conn)
+		wg.Add(1)
+		go func() {
+			conn, err := connect(ctx, srv)
+			if err != nil {
+				log.Println("skipping failed conn:", err)
+			}
+			s.mu.Lock()
+			s.conns = append(s.conns, conn)
+			if !s.started {
+				// record start time as first open connection.
+				s.startTime = time.Now()
+				s.started = true
+			}
+			s.mu.Unlock()
+			wg.Done()
+		}()
 	}
-	return conns, start, nil
+	wg.Wait()
+	return nil
 }
 
 type sharedResults struct {
 	applicationBytesReceived atomic.Int64
 	minRTT                   atomic.Int64
+	mu                       sync.Mutex
+	conns                    []*websocket.Conn
+	started                  bool
+	startTime                time.Time
 }
 
 func (s *sharedResults) downloadConn(ctx context.Context, wg *sync.WaitGroup, start time.Time, streamCount int, stream int, conn *websocket.Conn) {
@@ -277,12 +289,12 @@ outer:
 					// Use server metrics for single stream tests.
 					formatMessage("Download server", 1, m)
 				} else {
-					//if stream == 0 {
-					// Only do this for one stream.
-					log.Printf("Download client #1 - Avg %0.2f Mbps, elapsed %0.4fs, application r/w: %d/%d\n",
-						8*float64(s.applicationBytesReceived.Load())/1e6/time.Since(start).Seconds(), // as mbps.
-						time.Since(start).Seconds(), 0, s.applicationBytesReceived.Load())
-					//}
+					if stream == 0 {
+						// Only do this for one stream.
+						log.Printf("Download client #1 - Avg %0.2f Mbps, elapsed %0.4fs, application r/w: %d/%d\n",
+							8*float64(s.applicationBytesReceived.Load())/1e6/time.Since(start).Seconds(), // as mbps.
+							time.Since(start).Seconds(), 0, s.applicationBytesReceived.Load())
+					}
 				}
 			}
 		}
@@ -296,7 +308,8 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), *flagDuration*2)
 	defer cancel()
 
-	conns, start, err := getConn(ctx, *flagStreams)
+	s := &sharedResults{}
+	err := s.getConn(ctx, *flagStreams)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -304,24 +317,24 @@ func main() {
 		for i := range c {
 			c[i].Close()
 		}
-	}(conns)
+	}(s.conns)
+	// start2 := time.Now()
 
 	// Max runtime.
 	deadline := time.Now().Add(*flagDuration * 2)
-	for i := range conns {
-		conns[i].SetWriteDeadline(deadline)
-		conns[i].SetReadDeadline(deadline)
+	for i := range s.conns {
+		s.conns[i].SetWriteDeadline(deadline)
+		s.conns[i].SetReadDeadline(deadline)
 	}
 
 	wg := &sync.WaitGroup{}
-	s := &sharedResults{}
-	for i := range conns {
+	for i := range s.conns {
 		wg.Add(1)
-		go s.downloadConn(ctx, wg, start, *flagStreams, i, conns[i])
+		go s.downloadConn(ctx, wg, s.startTime, *flagStreams, i, s.conns[i])
 	}
 	wg.Wait()
 
-	since := time.Since(start)
+	since := time.Since(s.startTime)
 	log.Printf("Download client #1 - Avg %0.2f Mbps, MinRTT %5.2fms, elapsed %0.4fs, application r/w: %d/%d\n",
 		8*float64(s.applicationBytesReceived.Load())/1e6/since.Seconds(), // as mbps.
 		float64(s.minRTT.Load())/1000.0,                                  // as ms.
