@@ -14,7 +14,6 @@ import (
 	"net/url"
 	"path"
 	"runtime"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -32,14 +31,14 @@ const (
 var (
 	flagCC          = flag.String("cc", "bbr", "Congestion control algorithm to use")
 	flagDuration    = flag.Duration("duration", 5*time.Second, "Length of the last stream")
-	flagMaxDuration = flag.Duration("max-duration", 15*time.Second, "Maximum length of any stream")
+	flagMaxDuration = flag.Duration("max-duration", 15*time.Second, "Maximum length of all connections")
 	flagByteLimit   = flag.Int("bytes", 0, "Byte limit to request to the server")
 	flagNoVerify    = flag.Bool("no-verify", false, "Skip TLS certificate verification")
 	flagServerURL   = flag.String("server.url", "", "URL to directly target")
 	flagMID         = flag.String("server.mid", uuid.NewString(), "Measurement ID to use")
 	flagScheme      = flag.String("locate.scheme", "wss", "Websocket scheme (wss or ws)")
 	flagLocateURL   = flag.String("locate.url", locateURL, "The base url for the Locate API")
-	flagStreams     = flag.Int("streams", 1, "The number of streams to create")
+	flagStreams     = flag.Int("streams", 1, "The number of concurrent streams to create")
 )
 
 // WireMeasurement is a wrapper for Measurement structs that contains
@@ -202,10 +201,6 @@ func getDownloadServer(ctx context.Context) (*url.URL, error) {
 	// Just use the first result.
 	for i := range targets {
 		srvurl := targets[i].URLs[*flagScheme+":///throughput/v1/download"]
-		if strings.Contains(srvurl, "lga06") {
-			log.Println("skipping lga06")
-			continue
-		}
 		// Get server url.
 		return url.Parse(srvurl)
 	}
