@@ -208,10 +208,10 @@ func getDownloadServer(ctx context.Context) (*url.URL, error) {
 }
 
 type sharedResults struct {
-	bytesTotal       atomic.Int64
-	bytesAtLastStart atomic.Int64
-	bytesAtFirstStop atomic.Int64
-	minRTT           atomic.Int64
+	bytesTotal       atomic.Int64 // total bytes seen over the life of all connections.
+	bytesAtLastStart atomic.Int64 // total bytes seen when the last connection starts.
+	bytesAtFirstStop atomic.Int64 // total bytes seen when the first connection stops/closes.
+	minRTT           atomic.Int64 // minimum of all MinRTT values from all connections.
 	mu               sync.Mutex
 	started          atomic.Bool // set true after first connection opens.
 	firstStartTime   time.Time
