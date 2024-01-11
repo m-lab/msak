@@ -29,15 +29,16 @@ const (
 )
 
 var (
-	flagCC        = flag.String("cc", "bbr", "Congestion control algorithm to use")
-	flagDuration  = flag.Duration("duration", 5*time.Second, "Length of the last stream")
-	flagByteLimit = flag.Int("bytes", 0, "Byte limit to request to the server")
-	flagNoVerify  = flag.Bool("no-verify", false, "Skip TLS certificate verification")
-	flagServerURL = flag.String("server.url", "", "URL to directly target")
-	flagMID       = flag.String("server.mid", uuid.NewString(), "Measurement ID to use")
-	flagScheme    = flag.String("locate.scheme", "wss", "Websocket scheme (wss or ws)")
-	flagLocateURL = flag.String("locate.url", locateURL, "The base url for the Locate API")
-	flagStreams   = flag.Int("streams", 1, "The number of streams to create")
+	flagCC          = flag.String("cc", "bbr", "Congestion control algorithm to use")
+	flagDuration    = flag.Duration("duration", 5*time.Second, "Length of the last stream")
+	flagMaxDuration = flag.Duration("max-duration", 15*time.Second, "Maximum length of any stream")
+	flagByteLimit   = flag.Int("bytes", 0, "Byte limit to request to the server")
+	flagNoVerify    = flag.Bool("no-verify", false, "Skip TLS certificate verification")
+	flagServerURL   = flag.String("server.url", "", "URL to directly target")
+	flagMID         = flag.String("server.mid", uuid.NewString(), "Measurement ID to use")
+	flagScheme      = flag.String("locate.scheme", "wss", "Websocket scheme (wss or ws)")
+	flagLocateURL   = flag.String("locate.url", locateURL, "The base url for the Locate API")
+	flagStreams     = flag.Int("streams", 1, "The number of streams to create")
 )
 
 // WireMeasurement is a wrapper for Measurement structs that contains
@@ -132,11 +133,6 @@ func prepareHeaders(ctx context.Context, s *url.URL) (string, http.Header) {
 	return s.String(), headers
 }
 
-func connect(ctx context.Context, u string, headers http.Header) (*websocket.Conn, error) {
-	conn, _, err := localDialer.DialContext(ctx, u, headers)
-	return conn, err
-}
-
 // formatMessage reports a WireMeasurement in a human readable format.
 func formatMessage(prefix string, stream int, m WireMeasurement) {
 	log.Printf("%s #%d - rate %0.2f Mbps, rtt %5.2fms, elapsed %0.4fs, application r/w: %d/%d, network r/w: %d/%d kernel* r/w: %d/%d\n",
@@ -212,54 +208,18 @@ func getDownloadServer(ctx context.Context) (*url.URL, error) {
 }
 
 type sharedResults struct {
-	bytesTotal        atomic.Int64
-	bytesAtLastOpen   atomic.Int64
-	bytesAtFirstClose atomic.Int64
-	minRTT            atomic.Int64
-	mu                sync.Mutex
-	conns             []*websocket.Conn
-	started           atomic.Bool // set true after first connection opens.
-	firstStartTime    time.Time
-	lastStartTime     time.Time
-	stopped           atomic.Bool // set true after first connection closes (may be different than start conn).
-	firstStopTime     time.Time
-	lastStopTime      time.Time
+	bytesTotal       atomic.Int64
+	bytesAtLastStart atomic.Int64
+	bytesAtFirstStop atomic.Int64
+	minRTT           atomic.Int64
+	mu               sync.Mutex
+	started          atomic.Bool // set true after first connection opens.
+	firstStartTime   time.Time
+	lastStartTime    time.Time
+	stopped          atomic.Bool // set true after first connection closes (may be different than start conn).
+	firstStopTime    time.Time
+	lastStopTime     time.Time
 }
-
-// getConn connects to a download server, returning the *websocket.Conn.
-/*
-func (s *sharedResults) getConn(ctx context.Context, streams int) error {
-	srv, err := getDownloadServer(ctx)
-	if err != nil {
-		return err
-	}
-	// Get common URL and headers.
-	u, headers := prepareHeaders(ctx, srv)
-	// Connect to server N times.
-	wg := &sync.WaitGroup{}
-	for i := 0; i < streams; i++ {
-		wg.Add(1)
-		go func() {
-			conn, err := connect(ctx, u, headers)
-			if err != nil {
-				log.Println("skipping failed conn:", err)
-				return
-			}
-			s.mu.Lock() // protect conns and firstStartTime.
-			s.conns = append(s.conns, conn)
-			if !s.started.Load() {
-				s.started.Store(true)
-				// record start time as first open connection.
-				s.firstStartTime = time.Now()
-			}
-			s.mu.Unlock()
-			wg.Done()
-		}()
-	}
-	wg.Wait()
-	return nil
-}
-*/
 
 func (s *sharedResults) download(ctx context.Context, u string, headers http.Header, wg *sync.WaitGroup, streamCount int, stream int) {
 	// Connect to server.
@@ -278,7 +238,7 @@ func (s *sharedResults) download(ctx context.Context, u string, headers http.Hea
 			// Stop after first connect close.
 			s.stopped.Store(true)
 			s.firstStopTime = now
-			s.bytesAtFirstClose.Store(s.bytesTotal.Load())
+			s.bytesAtFirstStop.Store(s.bytesTotal.Load())
 		}
 		// This will update for every closed stream, but the last stream to close will be the correct "lastStopTime".
 		s.lastStopTime = now
@@ -287,9 +247,8 @@ func (s *sharedResults) download(ctx context.Context, u string, headers http.Hea
 	}(conn)
 
 	// Record first and last start times.
-	s.mu.Lock() // protect conns and startTime.
+	s.mu.Lock()
 	now := time.Now()
-	s.conns = append(s.conns, conn)
 	if !s.started.Load() {
 		s.started.Store(true)
 		// record start time as first open connection.
@@ -297,11 +256,11 @@ func (s *sharedResults) download(ctx context.Context, u string, headers http.Hea
 	}
 	// This will update for every stream, but the last stream to update will be the correct "lastStartTime".
 	s.lastStartTime = now
-	s.bytesAtLastOpen.Store(s.bytesTotal.Load())
+	s.bytesAtLastStart.Store(s.bytesTotal.Load())
 	s.mu.Unlock()
 
 	// Set absolute deadline for connections.
-	deadline := time.Now().Add(*flagDuration * 2)
+	deadline := time.Now().Add(*flagMaxDuration)
 	conn.SetWriteDeadline(deadline)
 	conn.SetReadDeadline(deadline)
 
@@ -342,6 +301,7 @@ outer:
 					return
 				}
 				if m.TCPInfo["MinRTT"] < s.minRTT.Load() || s.minRTT.Load() == 0 {
+					// NOTE: this will be the minimum of MinRTT across all streams.
 					s.minRTT.Store(m.TCPInfo["MinRTT"])
 				}
 
@@ -370,25 +330,6 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), *flagDuration*2)
 	defer cancel()
 
-	s := &sharedResults{}
-	/*
-		err := s.getConn(ctx, *flagStreams)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer func(c []*websocket.Conn) {
-			for i := range c {
-				c[i].Close()
-			}
-		}(s.conns)
-
-		// Max runtime.
-		deadline := time.Now().Add(*flagDuration * 2)
-		for i := range s.conns {
-			s.conns[i].SetWriteDeadline(deadline)
-			s.conns[i].SetReadDeadline(deadline)
-		}
-	*/
 	srv, err := getDownloadServer(ctx)
 	if err != nil {
 		log.Fatal(err)
@@ -396,6 +337,7 @@ func main() {
 	// Get common URL and headers.
 	u, headers := prepareHeaders(ctx, srv)
 
+	s := &sharedResults{}
 	wg := &sync.WaitGroup{}
 	for i := 0; i < *flagStreams; i++ {
 		wg.Add(1)
@@ -403,8 +345,9 @@ func main() {
 	}
 	wg.Wait()
 
-	elapsedAvg := s.lastStopTime.Sub(s.firstStartTime)
-	bytesAvg := s.bytesTotal.Load() - s.bytesAtFirstClose.Load() // like msak-client.
+	log.Println("------")
+	elapsedAvg := s.firstStopTime.Sub(s.firstStartTime)
+	bytesAvg := s.bytesAtFirstStop.Load() // like msak-client.
 	log.Printf("Download client #1 - Avg  %0.2f Mbps, MinRTT %5.2fms, elapsed %0.4fs, application r/w: %d/%d\n",
 		8*float64(bytesAvg)/1e6/elapsedAvg.Seconds(), // as mbps.
 		float64(s.minRTT.Load())/1000.0,              // as ms.
@@ -412,7 +355,7 @@ func main() {
 
 	if *flagStreams > 1 {
 		elapsedPeak := s.firstStopTime.Sub(s.lastStartTime)
-		bytesPeak := s.bytesAtFirstClose.Load() - s.bytesAtLastOpen.Load() // avg of peak period.
+		bytesPeak := s.bytesAtFirstStop.Load() - s.bytesAtLastStart.Load() // avg of peak period.
 		log.Printf("Download client #1 - Peak %0.2f Mbps, MinRTT %5.2fms, elapsed %0.4fs, application r/w: %d/%d\n",
 			8*float64(bytesPeak)/1e6/elapsedPeak.Seconds(), // as mbps.
 			float64(s.minRTT.Load())/1000.0,                // as ms.
