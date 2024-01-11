@@ -211,7 +211,23 @@ func getDownloadServer(ctx context.Context) (*url.URL, error) {
 	return nil, errors.New("no server")
 }
 
+type sharedResults struct {
+	bytesTotal        atomic.Int64
+	bytesAtLastOpen   atomic.Int64
+	bytesAtFirstClose atomic.Int64
+	minRTT            atomic.Int64
+	mu                sync.Mutex
+	conns             []*websocket.Conn
+	started           atomic.Bool // set true after first connection opens.
+	firstStartTime    time.Time
+	lastStartTime     time.Time
+	stopped           atomic.Bool // set true after first connection closes (may be different than start conn).
+	firstStopTime     time.Time
+	lastStopTime      time.Time
+}
+
 // getConn connects to a download server, returning the *websocket.Conn.
+/*
 func (s *sharedResults) getConn(ctx context.Context, streams int) error {
 	srv, err := getDownloadServer(ctx)
 	if err != nil {
@@ -227,13 +243,14 @@ func (s *sharedResults) getConn(ctx context.Context, streams int) error {
 			conn, err := connect(ctx, u, headers)
 			if err != nil {
 				log.Println("skipping failed conn:", err)
+				return
 			}
-			s.mu.Lock() // protect conns and startTime.
+			s.mu.Lock() // protect conns and firstStartTime.
 			s.conns = append(s.conns, conn)
 			if !s.started.Load() {
 				s.started.Store(true)
 				// record start time as first open connection.
-				s.startTime = time.Now()
+				s.firstStartTime = time.Now()
 			}
 			s.mu.Unlock()
 			wg.Done()
@@ -242,31 +259,54 @@ func (s *sharedResults) getConn(ctx context.Context, streams int) error {
 	wg.Wait()
 	return nil
 }
+*/
 
-type sharedResults struct {
-	applicationBytesReceived atomic.Int64
-	minRTT                   atomic.Int64
-	mu                       sync.Mutex
-	conns                    []*websocket.Conn
-	started                  atomic.Bool // set true after first connection opens.
-	startTime                time.Time
-	stopped                  atomic.Bool // set true after first connection closes (may be different than start conn).
-	stopTime                 time.Time
-}
-
-func (s *sharedResults) downloadConn(ctx context.Context, wg *sync.WaitGroup, start time.Time, streamCount int, stream int, conn *websocket.Conn) {
-	defer func() {
+func (s *sharedResults) download(ctx context.Context, u string, headers http.Header, wg *sync.WaitGroup, streamCount int, stream int) {
+	// Connect to server.
+	conn, _, err := localDialer.DialContext(ctx, u, headers)
+	if err != nil {
+		log.Println("skipping one stream; fialed to connect:", err)
+		return
+	}
+	defer func(conn *websocket.Conn) {
+		// Close on return.
+		conn.Close()
+		// On return, record first and last stop times.
 		s.mu.Lock() // protect stopTime.
+		now := time.Now()
 		if !s.stopped.Load() {
 			// Stop after first connect close.
 			s.stopped.Store(true)
-			s.stopTime = time.Now()
+			s.firstStopTime = now
+			s.bytesAtFirstClose.Store(s.bytesTotal.Load())
 		}
+		// This will update for every closed stream, but the last stream to close will be the correct "lastStopTime".
+		s.lastStopTime = now
 		s.mu.Unlock()
 		wg.Done()
-	}()
+	}(conn)
+
+	// Record first and last start times.
+	s.mu.Lock() // protect conns and startTime.
+	now := time.Now()
+	s.conns = append(s.conns, conn)
+	if !s.started.Load() {
+		s.started.Store(true)
+		// record start time as first open connection.
+		s.firstStartTime = now
+	}
+	// This will update for every stream, but the last stream to update will be the correct "lastStartTime".
+	s.lastStartTime = now
+	s.bytesAtLastOpen.Store(s.bytesTotal.Load())
+	s.mu.Unlock()
+
+	// Set absolute deadline for connections.
+	deadline := time.Now().Add(*flagDuration * 2)
+	conn.SetWriteDeadline(deadline)
+	conn.SetReadDeadline(deadline)
+
 outer:
-	// receive from text & binary messages from conn until the context expires or conn closes.
+	// Receive text & binary messages from conn until the context expires or conn closes.
 	for {
 		select {
 		case <-ctx.Done():
@@ -279,10 +319,6 @@ outer:
 				}
 				break outer
 			}
-			if s.stopped.Load() {
-				// Stop counting after first connection closes.
-				return
-			}
 			switch kind {
 			case websocket.BinaryMessage:
 				// Binary messages are discarded after reading their size.
@@ -291,21 +327,23 @@ outer:
 					log.Println("error", err)
 					return
 				}
-				s.applicationBytesReceived.Add(size)
+				s.bytesTotal.Add(size)
 			case websocket.TextMessage:
 				data, err := io.ReadAll(reader)
 				if err != nil {
 					log.Println("error", err)
 					return
 				}
-				s.applicationBytesReceived.Add(int64(len(data)))
+				s.bytesTotal.Add(int64(len(data)))
 
 				var m WireMeasurement
 				if err := json.Unmarshal(data, &m); err != nil {
 					log.Println("error", err)
 					return
 				}
-				s.minRTT.Store(m.TCPInfo["MinRTT"])
+				if m.TCPInfo["MinRTT"] < s.minRTT.Load() || s.minRTT.Load() == 0 {
+					s.minRTT.Store(m.TCPInfo["MinRTT"])
+				}
 
 				switch {
 				case streamCount == 1:
@@ -313,10 +351,13 @@ outer:
 					formatMessage("Download server", 1, m)
 				case streamCount > 1 && stream == 0:
 					// Only do this for one stream.
-					elapsed := time.Since(start)
-					log.Printf("Download client #1 - Avg %0.2f Mbps, elapsed %0.4fs, application r/w: %d/%d\n",
-						8*float64(s.applicationBytesReceived.Load())/1e6/elapsed.Seconds(), // as mbps.
-						elapsed.Seconds(), 0, s.applicationBytesReceived.Load())
+					s.mu.Lock()
+					elapsed := time.Since(s.firstStartTime)
+					s.mu.Unlock()
+					log.Printf("Download client #1 - Avg %0.2f Mbps, MinRTT %5.2fms, elapsed %0.4fs, application r/w: %d/%d\n",
+						8*float64(s.bytesTotal.Load())/1e6/elapsed.Seconds(), // as mbps.
+						float64(s.minRTT.Load())/1000.0,                      // as ms.
+						elapsed.Seconds(), 0, s.bytesTotal.Load())
 				}
 			}
 		}
@@ -330,33 +371,51 @@ func main() {
 	defer cancel()
 
 	s := &sharedResults{}
-	err := s.getConn(ctx, *flagStreams)
+	/*
+		err := s.getConn(ctx, *flagStreams)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer func(c []*websocket.Conn) {
+			for i := range c {
+				c[i].Close()
+			}
+		}(s.conns)
+
+		// Max runtime.
+		deadline := time.Now().Add(*flagDuration * 2)
+		for i := range s.conns {
+			s.conns[i].SetWriteDeadline(deadline)
+			s.conns[i].SetReadDeadline(deadline)
+		}
+	*/
+	srv, err := getDownloadServer(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer func(c []*websocket.Conn) {
-		for i := range c {
-			c[i].Close()
-		}
-	}(s.conns)
-
-	// Max runtime.
-	deadline := time.Now().Add(*flagDuration * 2)
-	for i := range s.conns {
-		s.conns[i].SetWriteDeadline(deadline)
-		s.conns[i].SetReadDeadline(deadline)
-	}
+	// Get common URL and headers.
+	u, headers := prepareHeaders(ctx, srv)
 
 	wg := &sync.WaitGroup{}
-	for i := range s.conns {
+	for i := 0; i < *flagStreams; i++ {
 		wg.Add(1)
-		go s.downloadConn(ctx, wg, s.startTime, *flagStreams, i, s.conns[i])
+		go s.download(ctx, u, headers, wg, *flagStreams, i)
 	}
 	wg.Wait()
 
-	elapsed := s.stopTime.Sub(s.startTime)
-	log.Printf("Download client #1 - Avg %0.2f Mbps, MinRTT %5.2fms, elapsed %0.4fs, application r/w: %d/%d\n",
-		8*float64(s.applicationBytesReceived.Load())/1e6/elapsed.Seconds(), // as mbps.
-		float64(s.minRTT.Load())/1000.0,                                    // as ms.
-		elapsed.Seconds(), 0, s.applicationBytesReceived.Load())
+	elapsedAvg := s.lastStopTime.Sub(s.firstStartTime)
+	bytesAvg := s.bytesTotal.Load() - s.bytesAtFirstClose.Load() // like msak-client.
+	log.Printf("Download client #1 - Avg  %0.2f Mbps, MinRTT %5.2fms, elapsed %0.4fs, application r/w: %d/%d\n",
+		8*float64(bytesAvg)/1e6/elapsedAvg.Seconds(), // as mbps.
+		float64(s.minRTT.Load())/1000.0,              // as ms.
+		elapsedAvg.Seconds(), 0, bytesAvg)
+
+	if *flagStreams > 1 {
+		elapsedPeak := s.firstStopTime.Sub(s.lastStartTime)
+		bytesPeak := s.bytesAtFirstClose.Load() - s.bytesAtLastOpen.Load() // avg of peak period.
+		log.Printf("Download client #1 - Peak %0.2f Mbps, MinRTT %5.2fms, elapsed %0.4fs, application r/w: %d/%d\n",
+			8*float64(bytesPeak)/1e6/elapsedPeak.Seconds(), // as mbps.
+			float64(s.minRTT.Load())/1000.0,                // as ms.
+			elapsedPeak.Seconds(), 0, bytesPeak)
+	}
 }
