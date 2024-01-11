@@ -15,16 +15,18 @@ const clientName = "msak-client-go"
 var clientVersion = version.Version
 
 var (
-	flagServer     = flag.String("server", "", "Server address")
-	flagStreams    = flag.Int("streams", client.DefaultStreams, "Number of streams")
-	flagCC         = flag.String("cc", "bbr", "Congestion control algorithm to use")
-	flagDelay      = flag.Duration("delay", 0, "Delay between each stream")
-	flagDuration   = flag.Duration("duration", client.DefaultLength, "Length of the last stream")
-	flagScheme     = flag.String("scheme", client.DefaultScheme, "Websocket scheme (wss or ws)")
-	flagMID        = flag.String("mid", uuid.NewString(), "Measurement ID to use")
-	flagNoVerify   = flag.Bool("no-verify", false, "Skip TLS certificate verification")
-	flagDebug      = flag.Bool("debug", false, "Enable debug logging")
+	flagServer    = flag.String("server", "", "Server address")
+	flagStreams   = flag.Int("streams", client.DefaultStreams, "Number of streams")
+	flagCC        = flag.String("cc", "bbr", "Congestion control algorithm to use")
+	flagDelay     = flag.Duration("delay", 0, "Delay between each stream")
+	flagDuration  = flag.Duration("duration", client.DefaultLength, "Length of the last stream")
+	flagScheme    = flag.String("scheme", client.DefaultScheme, "Websocket scheme (wss or ws)")
+	flagMID       = flag.String("mid", uuid.NewString(), "Measurement ID to use")
+	flagNoVerify  = flag.Bool("no-verify", false, "Skip TLS certificate verification")
+	flagDebug     = flag.Bool("debug", false, "Enable debug logging")
 	flagByteLimit = flag.Int("bytes", 0, "Byte limit to request to the server")
+	flagUpload    = flag.Bool("upload", true, "Whether to run upload test")
+	flagDownload  = flag.Bool("download", true, "Whether to run download test")
 )
 
 func main() {
@@ -47,12 +49,16 @@ func main() {
 		Emitter: client.HumanReadable{
 			Debug: *flagDebug,
 		},
-		NoVerify:   *flagNoVerify,
+		NoVerify:  *flagNoVerify,
 		ByteLimit: *flagByteLimit,
 	}
 
 	cl := client.New(clientName, clientVersion, config)
 
-	cl.Download(context.Background())
-	cl.Upload(context.Background())
+	if *flagDownload {
+		cl.Download(context.Background())
+	}
+	if *flagUpload {
+		cl.Upload(context.Background())
+	}
 }
