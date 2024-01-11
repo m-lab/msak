@@ -341,7 +341,7 @@ func main() {
 	}
 	// Get common URL and headers.
 	u, headers := prepareHeaders(ctx, srv)
-	log.Printf("Connecting: %s://%s/%s", srv.Scheme, srv.Host, srv.Path)
+	log.Printf("Connecting: %s://%s/%s?...", srv.Scheme, srv.Host, srv.Path)
 
 	s := &sharedResults{}
 	wg := &sync.WaitGroup{}
@@ -353,15 +353,16 @@ func main() {
 
 	log.Println("------")
 	elapsedAvg := s.firstStopTime.Sub(s.firstStartTime)
-	bytesAvg := s.bytesAtFirstStop.Load() // like msak-client.
+	bytesAvg := s.bytesAtFirstStop.Load() // like msak-client, bytes during first-start to first-stop.
 	log.Printf("Download client #1 - Avg  %0.2f Mbps, MinRTT %5.2fms, elapsed %0.4fs, application r/w: %d/%d\n",
 		8*float64(bytesAvg)/1e6/elapsedAvg.Seconds(), // as mbps.
 		float64(s.minRTT.Load())/1000.0,              // as ms.
 		elapsedAvg.Seconds(), 0, bytesAvg)
 
-	if *flagStreams > 1 {
-		elapsedPeak := s.firstStopTime.Sub(s.lastStartTime)
-		bytesPeak := s.bytesAtFirstStop.Load() - s.bytesAtLastStart.Load() // avg of peak period.
+	// TODO: we assume connections all overlap during peak periods.
+	elapsedPeak := s.firstStopTime.Sub(s.lastStartTime)
+	bytesPeak := s.bytesAtFirstStop.Load() - s.bytesAtLastStart.Load() // bytes during of peak period.
+	if *flagStreams > 1 && bytesPeak > 0 && elapsedPeak > 0 {
 		log.Printf("Download client #1 - Peak %0.2f Mbps, MinRTT %5.2fms, elapsed %0.4fs, application r/w: %d/%d\n",
 			8*float64(bytesPeak)/1e6/elapsedPeak.Seconds(), // as mbps.
 			float64(s.minRTT.Load())/1000.0,                // as ms.
