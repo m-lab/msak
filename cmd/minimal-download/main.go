@@ -311,9 +311,7 @@ outer:
 					formatMessage("Download server", 1, m)
 				case streamCount > 1 && stream == 0:
 					// Only do this for one stream.
-					s.mu.Lock()
 					elapsed := time.Since(s.firstStartTime)
-					s.mu.Unlock()
 					log.Printf("Download client #1 - Avg  %0.2f Mbps, MinRTT %5.2fms, elapsed %0.4fs, application r/w: %d/%d\n",
 						8*float64(s.bytesTotal.Load())/1e6/elapsed.Seconds(), // as mbps.
 						float64(s.minRTT.Load())/1000.0,                      // as ms.
