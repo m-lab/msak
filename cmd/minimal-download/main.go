@@ -135,7 +135,7 @@ func prepareHeaders(ctx context.Context, s *url.URL) (string, http.Header) {
 
 // formatMessage reports a WireMeasurement in a human readable format.
 func formatMessage(prefix string, stream int, m WireMeasurement) {
-	log.Printf("%s #%d - rate %0.2f Mbps, rtt %5.2fms, elapsed %0.4fs, application r/w: %d/%d, network r/w: %d/%d kernel* r/w: %d/%d\n",
+	log.Printf("%s #%d rate: %0.2f Mbps, rtt %5.2fms, elapsed %0.4fs, application r/w: %d/%d, network r/w: %d/%d kernel* r/w: %d/%d\n",
 		prefix, stream,
 		8*float64(m.TCPInfo["BytesAcked"])/(float64(m.ElapsedTime)), // to mbps.
 		float64(m.TCPInfo["RTT"])/1000.0,                            // to ms.
@@ -312,7 +312,7 @@ outer:
 				case streamCount > 1 && stream == 0:
 					// Only do this for one stream.
 					elapsed := time.Since(s.firstStartTime)
-					log.Printf("Download client #1 - Avg  %0.2f Mbps, MinRTT %5.2fms, elapsed %0.4fs, application r/w: %d/%d\n",
+					log.Printf("Download stream #1 rate: %0.2f Mbps, MinRTT %5.2fms, elapsed %0.4fs, application r/w: %d/%d\n",
 						8*float64(s.bytesTotal.Load())/1e6/elapsed.Seconds(), // as mbps.
 						float64(s.minRTT.Load())/1000.0,                      // as ms.
 						elapsed.Seconds(), 0, s.bytesTotal.Load())
@@ -345,9 +345,16 @@ func main() {
 	wg.Wait()
 
 	log.Println("------")
+	elapsedTotal := s.lastStopTime.Sub(s.firstStartTime)
+	bytesTotal := s.bytesTotal.Load()
+	log.Printf("Download total average:  %0.2f Mbps, MinRTT %5.2fms, elapsed %0.4fs, application r/w: %d/%d\n",
+		8*float64(bytesTotal)/1e6/elapsedTotal.Seconds(), // as mbps.
+		float64(s.minRTT.Load())/1000.0,                  // as ms.
+		elapsedTotal.Seconds(), 0, bytesTotal)
+
 	elapsedAvg := s.firstStopTime.Sub(s.firstStartTime)
 	bytesAvg := s.bytesAtFirstStop.Load() // like msak-client, bytes during first-start to first-stop.
-	log.Printf("Download client #1 - Avg  %0.2f Mbps, MinRTT %5.2fms, elapsed %0.4fs, application r/w: %d/%d\n",
+	log.Printf("Download first average:  %0.2f Mbps, MinRTT %5.2fms, elapsed %0.4fs, application r/w: %d/%d\n",
 		8*float64(bytesAvg)/1e6/elapsedAvg.Seconds(), // as mbps.
 		float64(s.minRTT.Load())/1000.0,              // as ms.
 		elapsedAvg.Seconds(), 0, bytesAvg)
@@ -356,7 +363,7 @@ func main() {
 	elapsedPeak := s.firstStopTime.Sub(s.lastStartTime)
 	bytesPeak := s.bytesAtFirstStop.Load() - s.bytesAtLastStart.Load() // bytes during of peak period.
 	if *flagStreams > 1 && bytesPeak > 0 && elapsedPeak > 0 {
-		log.Printf("Download client #1 - Peak %0.2f Mbps, MinRTT %5.2fms, elapsed %0.4fs, application r/w: %d/%d\n",
+		log.Printf("Download center average: %0.2f Mbps, MinRTT %5.2fms, elapsed %0.4fs, application r/w: %d/%d\n",
 			8*float64(bytesPeak)/1e6/elapsedPeak.Seconds(), // as mbps.
 			float64(s.minRTT.Load())/1000.0,                // as ms.
 			elapsedPeak.Seconds(), 0, bytesPeak)
