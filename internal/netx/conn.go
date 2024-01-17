@@ -1,6 +1,7 @@
 package netx
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net"
@@ -17,14 +18,26 @@ import (
 	"github.com/m-lab/uuid"
 )
 
+type contextKey string
+
+const uuidCtxKey = "netx-uuid"
+
 // ConnInfo provides operations on a net.Conn's underlying file descriptor.
 type ConnInfo interface {
 	ByteCounters() (uint64, uint64)
 	Info() (inetdiag.BBRInfo, tcp.LinuxTCPInfo, error)
 	AcceptTime() time.Time
-	UUID() (string, error)
+	UUID() string
 	GetCC() (string, error)
 	SetCC(string) error
+	SaveUUID(context.Context) context.Context
+}
+
+// TCPLikeConn is a net.Conn with a File() method. This is useful for creating a
+// netx.Conn based on a custom TCPConn-like type - e.g. for testing.
+type TCPLikeConn interface {
+	net.Conn
+	File() (*os.File, error)
 }
 
 // ToConnInfo is a helper function to convert a net.Conn into a netx.ConnInfo.
@@ -51,8 +64,9 @@ type Conn struct {
 	bytesWritten atomic.Uint64
 }
 
-func FromTCPConn(tcpConn *net.TCPConn) (*Conn, error) {
-	return fromTCPConn(tcpConn)
+// FromTCPLikeConn creates a netx.Conn from a TCPLikeConn.
+func FromTCPLikeConn(tcpConn TCPLikeConn) (*Conn, error) {
+	return fromTCPLikeConn(tcpConn)
 }
 
 // Read reads from the underlying net.Conn and updates the read bytes counter.
@@ -109,7 +123,7 @@ func (c *Conn) AcceptTime() time.Time {
 
 // UUID returns an M-Lab UUID. On platforms not supporting SO_COOKIE, it
 // returns a google/uuid as a fallback. If the fallback fails, it panics.
-func (c *Conn) UUID() (string, error) {
+func (c *Conn) UUID() string {
 	uuid, err := uuid.FromFile(c.fp)
 	if err != nil {
 		// fallback: use google/uuid if the platform does not support SO_COOKIE.
@@ -118,5 +132,21 @@ func (c *Conn) UUID() (string, error) {
 		rtx.Must(err, "unable to fallback to uuid")
 		uuid = gid.String()
 	}
-	return uuid, nil
+	return uuid
+}
+
+// SaveUUID saves this connection's UUID in a context.Context using a globally
+// unique key. LoadUUID should be used to retrieve the uuid from the context.
+func (c *Conn) SaveUUID(ctx context.Context) context.Context {
+	return context.WithValue(ctx, contextKey(uuidCtxKey), c.UUID())
+}
+
+// LoadUUID reads a connection UUID from a context.Context using a globally
+// unique key. Returns an empty string if the UUID is not found in the context.
+func LoadUUID(ctx context.Context) string {
+	uuid, ok := ctx.Value(contextKey(uuidCtxKey)).(string)
+	if !ok {
+		return ""
+	}
+	return uuid
 }

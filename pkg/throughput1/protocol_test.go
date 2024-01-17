@@ -1,4 +1,4 @@
-package ndt8_test
+package throughput1_test
 
 import (
 	"bytes"
@@ -14,8 +14,8 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/m-lab/go/rtx"
 	"github.com/m-lab/msak/internal/netx"
-	"github.com/m-lab/msak/pkg/ndt8"
-	"github.com/m-lab/msak/pkg/ndt8/spec"
+	"github.com/m-lab/msak/pkg/throughput1"
+	"github.com/m-lab/msak/pkg/throughput1/spec"
 )
 
 func TestProtocol_Upgrade(t *testing.T) {
@@ -26,7 +26,7 @@ func TestProtocol_Upgrade(t *testing.T) {
 	r.Header.Add("Upgrade", "websocket")
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, err := ndt8.Upgrade(w, r)
+		_, err := throughput1.Upgrade(w, r)
 		if err != nil {
 			return
 		}
@@ -64,9 +64,9 @@ func TestProtocol_Upgrade(t *testing.T) {
 }
 
 func downloadHandler(rw http.ResponseWriter, req *http.Request) {
-	wsConn, err := ndt8.Upgrade(rw, req)
+	wsConn, err := throughput1.Upgrade(rw, req)
 	rtx.Must(err, "failed to upgrade to WS")
-	proto := ndt8.New(wsConn)
+	proto := throughput1.New(wsConn)
 	ctx, cancel := context.WithTimeout(req.Context(), 3*time.Second)
 	defer cancel()
 	tx, rx, errCh := proto.SenderLoop(ctx)
@@ -106,14 +106,14 @@ func TestProtocol_Download(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return netx.FromTCPConn(conn.(*net.TCPConn))
+			return netx.FromTCPLikeConn(conn.(*net.TCPConn))
 		},
 	}
 
 	conn, _, err := d.Dial(u.String(), headers)
 
 	rtx.Must(err, "cannot dial server")
-	proto := ndt8.New(conn)
+	proto := throughput1.New(conn)
 	senderCh, receiverCh, errCh := proto.ReceiverLoop(context.Background())
 	start := time.Now()
 	for {
@@ -121,8 +121,10 @@ func TestProtocol_Download(t *testing.T) {
 		case <-context.Background().Done():
 			return
 		case m := <-senderCh:
-			fmt.Printf("senderCh BytesReceived: %d, BytesSent: %d\n", m.BytesReceived, m.BytesSent)
-			fmt.Printf("senderCh Goodput: %f Mb/s\n", float64(m.BytesReceived)/float64(time.Since(start).Microseconds())*8)
+			fmt.Printf("senderCh Network.BytesReceived: %d, Network.BytesSent: %d\n",
+				m.Network.BytesReceived, m.Network.BytesSent)
+			fmt.Printf("senderCh Network throughput: %f Mb/s\n",
+				float64(m.Network.BytesReceived)/float64(time.Since(start).Microseconds())*8)
 		case <-receiverCh:
 
 		case err := <-errCh:
@@ -133,5 +135,53 @@ func TestProtocol_Download(t *testing.T) {
 			fmt.Println("normal close")
 			return
 		}
+	}
+}
+
+func TestProtocol_ScaleMessage(t *testing.T) {
+	tests := []struct {
+		name      string
+		byteLimit int
+		msgSize   int
+		bytesSent int
+		want      int
+	}{
+		{
+			name:      "no-limit",
+			byteLimit: 0,
+			msgSize:   10,
+			bytesSent: 100,
+			want:      10,
+		},
+		{
+			name:      "under-limit",
+			byteLimit: 200,
+			msgSize:   10,
+			bytesSent: 100,
+			want:      10,
+		},
+		{
+			name:      "at-limit",
+			byteLimit: 110,
+			msgSize:   10,
+			bytesSent: 100,
+			want:      10,
+		},
+		{
+			name:      "over-limit",
+			byteLimit: 110,
+			msgSize:   20,
+			bytesSent: 100,
+			want:      10,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &throughput1.Protocol{}
+			p.SetByteLimit(tt.byteLimit)
+			if got := p.ScaleMessage(tt.msgSize, tt.bytesSent); got != tt.want {
+				t.Errorf("Protocol.ScaleMessage() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

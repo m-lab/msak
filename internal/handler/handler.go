@@ -14,13 +14,15 @@ import (
 	"github.com/m-lab/go/prometheusx"
 	"github.com/m-lab/msak/internal/netx"
 	"github.com/m-lab/msak/internal/persistence"
-	"github.com/m-lab/msak/pkg/ndt8"
-	"github.com/m-lab/msak/pkg/ndt8/model"
+	"github.com/m-lab/msak/pkg/throughput1"
+	"github.com/m-lab/msak/pkg/throughput1/model"
+	"github.com/m-lab/msak/pkg/throughput1/spec"
+	"github.com/m-lab/msak/pkg/version"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
-// knownOptions are the known ndt8 options.
+// knownOptions are the known throughput1 options.
 var knownOptions = map[string]struct{}{
 	"streams":      {},
 	"duration":     {},
@@ -38,30 +40,30 @@ var validCCAlgorithms = map[string]struct{}{
 }
 
 var (
+	clientConnections = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "msak",
+			Subsystem: "throughput1",
+			Name:      "client_connections_total",
+			Help:      "Number of connections that reached the upload or the download handler.",
+		},
+		[]string{"direction", "status"},
+	)
 	testsTotal = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "msak",
-			Subsystem: "ndt8",
+			Subsystem: "throughput1",
 			Name:      "tests_total",
-			Help:      "Counter of ndt8 tests",
+			Help:      "Number of tests that successfully upgraded to websocket and started",
 		},
-		[]string{"direction"},
-	)
-	connectionErrors = promauto.NewCounterVec(
-		prometheus.CounterOpts{
-			Namespace: "msak",
-			Subsystem: "ndt8",
-			Name:      "connection_errors_total",
-			Help:      "Counter of connection errors.",
-		},
-		[]string{"direction", "error"},
+		[]string{"direction", "status"},
 	)
 	fileWrites = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "msak",
-			Subsystem: "ndt8",
+			Subsystem: "throughput1",
 			Name:      "file_writes_total",
-			Help:      "Counter of (successful or attempted) file writes.",
+			Help:      "Number of (successful or failed) file writes.",
 		},
 		[]string{"direction", "status"},
 	)
@@ -87,9 +89,9 @@ func (h *Handler) Upload(rw http.ResponseWriter, req *http.Request) {
 
 func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.ResponseWriter,
 	req *http.Request) {
-	mid, err := getMIDFromRequest(req)
+	mid, err := GetMIDFromRequest(req)
 	if err != nil {
-		connectionErrors.WithLabelValues(string(kind), "missing-mid").Inc()
+		clientConnections.WithLabelValues(string(kind), "missing-mid").Inc()
 		log.Info("Received request without mid", "source", req.RemoteAddr,
 			"error", err)
 		writeBadRequest(rw)
@@ -101,7 +103,7 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 	query := req.URL.Query()
 	requestStreams := query.Get("streams")
 	if requestStreams == "" {
-		connectionErrors.WithLabelValues(string(kind),
+		clientConnections.WithLabelValues(string(kind),
 			"missing-streams").Inc()
 		log.Info("Received request without streams", "source", req.RemoteAddr)
 		writeBadRequest(rw)
@@ -119,7 +121,7 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 			clientOptions = append(clientOptions,
 				model.NameValue{Name: "duration", Value: requestDuration})
 		} else {
-			connectionErrors.WithLabelValues(string(kind),
+			clientConnections.WithLabelValues(string(kind),
 				"invalid-duration").Inc()
 			log.Info("Received request with an invalid duration",
 				"source", req.RemoteAddr, "duration", requestDuration)
@@ -148,11 +150,25 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 			model.NameValue{Name: "delay", Value: requestDelay})
 	}
 
+	requestByteLimit := query.Get(spec.ByteLimitParameterName)
+	var byteLimit int
+	if requestByteLimit != "" {
+		if byteLimit, err = strconv.Atoi(requestByteLimit); err != nil {
+			clientConnections.WithLabelValues(string(kind), "invalid-byte-limit").Inc()
+			log.Info("Received request with an invalid byte limit", "source", req.RemoteAddr,
+				"value", requestByteLimit)
+			writeBadRequest(rw)
+			return
+		}
+		clientOptions = append(clientOptions,
+			model.NameValue{Name: spec.ByteLimitParameterName, Value: requestByteLimit})
+	}
+
 	// Read metadata (i.e. everything in the querystring that's not a known
 	// option).
 	metadata, err := getRequestMetadata(req)
 	if err != nil {
-		connectionErrors.WithLabelValues(string(kind),
+		clientConnections.WithLabelValues(string(kind),
 			"metadata-parse-error").Inc()
 		log.Info("Error while parsing metadata", "source", req.RemoteAddr,
 			"error", err)
@@ -161,12 +177,12 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 	}
 
 	// Everything looks good, try upgrading the connection to WebSocket.
-	// Once upgraded, the underlying TCP connection is hijacked and the ndt8
+	// Once upgraded, the underlying TCP connection is hijacked and the throughput1
 	// protocol code will take care of closing it. Note that for this reason
 	// we cannot call writeBadRequest after attempting an Upgrade.
-	wsConn, err := ndt8.Upgrade(rw, req)
+	wsConn, err := throughput1.Upgrade(rw, req)
 	if err != nil {
-		connectionErrors.WithLabelValues(string(kind),
+		clientConnections.WithLabelValues(string(kind),
 			"websocket-upgrade-failed").Inc()
 		log.Info("Websocket upgrade failed",
 			"ctx", fmt.Sprintf("%p", req.Context()), "error", err)
@@ -193,15 +209,12 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 		}
 	}
 
-	uuid, err := conn.UUID()
-	if err != nil {
-		// UUID() has a fallback that won't ever fail. This should not happen.
-		log.Error("Failed to read UUID", "ctx",
-			fmt.Sprintf("%p", req.Context()), "error", err)
-		wsConn.Close()
-		return
-	}
-	archivalData := model.NDT8Result{
+	// The WS upgrade succeeded, so update the clientConnections metric.
+	clientConnections.WithLabelValues(string(kind),
+		"ok").Inc()
+
+	uuid := conn.UUID()
+	archivalData := model.Throughput1Result{
 		MeasurementID:  mid,
 		UUID:           uuid,
 		StartTime:      time.Now(),
@@ -209,7 +222,7 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 		Client:         wsConn.UnderlyingConn().RemoteAddr().String(),
 		Direction:      string(kind),
 		GitShortCommit: prometheusx.GitShortCommit,
-		Version:        "v0.0.1",
+		Version:        version.Version,
 		ClientMetadata: metadata,
 		ClientOptions:  clientOptions,
 	}
@@ -218,13 +231,12 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 		h.writeResult(uuid, kind, &archivalData)
 	}()
 
-	testsTotal.WithLabelValues(string(kind)).Inc()
-
 	// Set the runtime to the requested duration.
 	timeout, cancel := context.WithTimeout(req.Context(), duration)
 	defer cancel()
 
-	proto := ndt8.New(wsConn)
+	proto := throughput1.New(wsConn)
+	proto.SetByteLimit(byteLimit)
 	var senderCh, receiverCh <-chan model.WireMeasurement
 	var errCh <-chan error
 	if kind == model.DirectionDownload {
@@ -236,6 +248,8 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 	for {
 		select {
 		case <-timeout.Done():
+			// If the test has timed out count it as a success and return.
+			testsTotal.WithLabelValues(string(kind), "ok").Inc()
 			return
 		case m := <-senderCh:
 			// If this is a download test we are the sender, so we can populate
@@ -257,31 +271,37 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure) {
 				log.Info("Connection closed unexpectedly", "context",
 					fmt.Sprintf("%p", timeout), "error", err)
-				// TODO: Add Prometheus metric
+				testsTotal.WithLabelValues(string(kind), "close-error").Inc()
+				return
 			}
+
+			// If the WS error is CloseNormalClosure, it means the client closed
+			// the connection and this test was successful.
+			testsTotal.WithLabelValues(string(kind), "ok").Inc()
 			return
 		}
 	}
 }
 
-func (h *Handler) writeResult(uuid string, kind model.TestDirection, result *model.NDT8Result) {
+func (h *Handler) writeResult(uuid string, kind model.TestDirection, result *model.Throughput1Result) {
 	_, err := persistence.WriteDataFile(
-		h.archivalDataDir, "ndt8", string(kind), uuid, result)
+		h.archivalDataDir, "throughput1", string(kind), uuid,
+		result)
 	if err != nil {
-		log.Error("failed to write ndt8 result", "error", err)
+		log.Error("failed to write throughput1 result", "uuid", uuid, "error", err)
 		fileWrites.WithLabelValues(string(kind), "error").Inc()
 		return
 	}
 	fileWrites.WithLabelValues(string(kind), "ok").Inc()
 }
 
-// getMIDFromRequest extracts the measurement id ("mid") from a given HTTP
+// GetMIDFromRequest extracts the measurement id ("mid") from a given HTTP
 // request, if present.
 //
 // A measurement ID can be specified in two ways: via a "mid" querystring
 // parameter (when access tokens are not required) or via the ID field
 // in the JWT access token.
-func getMIDFromRequest(req *http.Request) (string, error) {
+func GetMIDFromRequest(req *http.Request) (string, error) {
 	// If the request includes a valid JWT token, the claim and the ID are in
 	// the request's context already.
 	claims := controller.GetClaim(req.Context())

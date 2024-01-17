@@ -1,11 +1,11 @@
-// Package spec contains constants for the ndt8 protocol.
+// Package spec contains constants for the throughput1 protocol.
 package spec
 
 import "time"
 
 const (
 	// MinMessagesize is the initial size of a Websocket binary message during
-	// an ndt8 test.
+	// an throughput1 test.
 	MinMessageSize = 1 << 10
 
 	// MaxScaledMessageSize is the maximum value of a scaled binary WebSocket
@@ -28,15 +28,20 @@ const (
 	ScalingFraction = 16
 
 	// DownloadPath selects the download subtest.
-	DownloadPath = "/ndt/v8/download"
+	DownloadPath = "/throughput/v1/download"
 	// UploadPath selects the upload subtest.
-	UploadPath = "/ndt/v8/upload"
+	UploadPath = "/throughput/v1/upload"
 
 	// MaxRuntime is the maximum runtime of a subtest.
 	MaxRuntime = 15 * time.Second
 
 	// SecWebSocketProtocol is the value of the Sec-WebSocket-Protocol header.
-	SecWebSocketProtocol = "net.measurementlab.ndt.v8"
+	SecWebSocketProtocol = "net.measurementlab.throughput.v1"
+
+	// ByteLimitParameterName is the name of the parameter that clients can use
+	// to terminate throughput1 download tests once the test has transferred
+	// the specified number of bytes.
+	ByteLimitParameterName = "bytes"
 )
 
 // SubtestKind indicates the subtest kind
