@@ -349,6 +349,7 @@ func main() {
 	wg.Wait()
 
 	log.Println("------")
+	// Average over all connections.
 	elapsedTotal := s.lastStopTime.Sub(s.firstStartTime)
 	bytesTotal := s.bytesTotal.Load()
 	log.Printf("Download total average:  %0.2f Mbps, MinRTT %5.2fms, elapsed %0.4fs, application r/w: %d/%d\n",
@@ -356,14 +357,18 @@ func main() {
 		float64(s.minRTT.Load())/1000.0,                  // as ms.
 		elapsedTotal.Seconds(), 0, bytesTotal)
 
+	// Average over first connection.
 	elapsedAvg := s.firstStopTime.Sub(s.firstStartTime)
 	bytesAvg := s.bytesAtFirstStop.Load() // like msak-client, bytes during first-start to first-stop.
-	log.Printf("Download first average:  %0.2f Mbps, MinRTT %5.2fms, elapsed %0.4fs, application r/w: %d/%d\n",
-		8*float64(bytesAvg)/1e6/elapsedAvg.Seconds(), // as mbps.
-		float64(s.minRTT.Load())/1000.0,              // as ms.
-		elapsedAvg.Seconds(), 0, bytesAvg)
+	if *flagStreams > 1 {
+		log.Printf("Download first average:  %0.2f Mbps, MinRTT %5.2fms, elapsed %0.4fs, application r/w: %d/%d\n",
+			8*float64(bytesAvg)/1e6/elapsedAvg.Seconds(), // as mbps.
+			float64(s.minRTT.Load())/1000.0,              // as ms.
+			elapsedAvg.Seconds(), 0, bytesAvg)
+	}
 
-	// TODO: we assume connections all overlap during peak periods.
+	// NOTE: we assume connections all overlap during peak periods.
+	// Average over period when all streams were concurrent.
 	elapsedPeak := s.firstStopTime.Sub(s.lastStartTime)
 	bytesPeak := s.bytesAtFirstStop.Load() - s.bytesAtLastStart.Load() // bytes during of peak period.
 	if *flagStreams > 1 && bytesPeak > 0 && elapsedPeak > 0 {
