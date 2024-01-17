@@ -192,12 +192,10 @@ func (p *Protocol) sendWireMeasurement(ctx context.Context, m model.Measurement)
 	// sending.
 	jsonwm, err := json.Marshal(wm)
 	if err != nil {
-		log.Printf("failed to encode measurement (ctx: %p, err: %v)", ctx, err)
 		return nil, err
 	}
 	err = p.conn.WriteMessage(websocket.TextMessage, jsonwm)
 	if err != nil {
-		log.Printf("failed to write measurement JSON (ctx: %p, err: %v)", ctx, err)
 		return nil, err
 	}
 	p.applicationBytesSent.Add(int64(len(jsonwm)))
@@ -252,7 +250,6 @@ func (p *Protocol) sender(ctx context.Context, measurerCh <-chan model.Measureme
 	size := p.ScaleMessage(spec.MinMessageSize, 0)
 	message, err := p.makePreparedMessage(size)
 	if err != nil {
-		log.Printf("makePreparedMessage failed (ctx: %p)", ctx)
 		errCh <- err
 		return
 	}
@@ -277,7 +274,6 @@ func (p *Protocol) sender(ctx context.Context, measurerCh <-chan model.Measureme
 		default:
 			err = p.conn.WritePreparedMessage(message)
 			if err != nil {
-				log.Printf("failed to write prepared message (ctx: %p, err: %v)", ctx, err)
 				errCh <- err
 				return
 			}
@@ -310,7 +306,6 @@ func (p *Protocol) sender(ctx context.Context, measurerCh <-chan model.Measureme
 			// Create a new message for the new size.
 			message, err = p.makePreparedMessage(size)
 			if err != nil {
-				log.Printf("failed to make prepared message (ctx: %p, err: %v)", ctx, err)
 				errCh <- err
 				return
 			}

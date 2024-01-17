@@ -268,16 +268,27 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 			archivalData.ClientMeasurements = append(archivalData.ClientMeasurements,
 				m.Measurement)
 		case err := <-errCh:
+			// If this is a normal WS closure, it means the client closed the
+			// connection and the test was successful.
+			if websocket.IsCloseError(err, websocket.CloseNormalClosure) {
+				testsTotal.WithLabelValues(string(kind), "ok").Inc()
+				log.Info("Connection closed normally", "context", fmt.Sprintf("%p", timeout))
+				return
+			}
+
+			// If this is a WS closure with an unexpected code, count it as a
+			// close error.
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure) {
 				log.Info("Connection closed unexpectedly", "context",
-					fmt.Sprintf("%p", timeout), "error", err)
+					fmt.Sprintf("%p", timeout), "close-error", err)
 				testsTotal.WithLabelValues(string(kind), "close-error").Inc()
 				return
 			}
 
-			// If the WS error is CloseNormalClosure, it means the client closed
-			// the connection and this test was successful.
-			testsTotal.WithLabelValues(string(kind), "ok").Inc()
+			// If the error is not a WS close, it means the test did not complete
+			// successfully.
+			testsTotal.WithLabelValues(string(kind), "error").Inc()
+			log.Info("Connection closed with error", "context", fmt.Sprintf("%p", timeout))
 			return
 		}
 	}
