@@ -325,6 +325,10 @@ outer:
 func main() {
 	flag.Parse()
 
+	if *flagStreams < 1 || *flagStreams > 4 {
+		log.Fatal("Invalid configuration: the number of streams must be between 1 and 4.")
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), *flagMaxDuration)
 	defer cancel()
 
