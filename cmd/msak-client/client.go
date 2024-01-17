@@ -38,6 +38,10 @@ func main() {
 		log.Fatal("Invalid configuration: please check streams, delay and duration and make sure they make sense.")
 	}
 
+	if *flagStreams < 1 || *flagStreams > 4 {
+		log.Fatal("Invalid configuration: the number of streams must be between 1 and 4.")
+	}
+
 	config := client.Config{
 		Server:            *flagServer,
 		Scheme:            *flagScheme,
