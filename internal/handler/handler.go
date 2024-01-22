@@ -58,6 +58,15 @@ var (
 		},
 		[]string{"direction", "status"},
 	)
+	congestionControlErrors = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "msak",
+			Subsystem: "throughput1",
+			Name:      "congestion_control_errors_total",
+			Help:      "Number of attempts to set congestion control algorithm that resulted in an error.",
+		},
+		[]string{"cc"},
+	)
 	fileWrites = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "msak",
@@ -203,6 +212,7 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 	if requestCC != "" {
 		err = conn.SetCC(requestCC)
 		if err != nil {
+			congestionControlErrors.WithLabelValues(requestCC).Inc()
 			log.Info("Failed to set cc", "ctx", fmt.Sprintf("%p", req.Context()),
 				"source", wsConn.RemoteAddr(),
 				"cc", requestCC, "error", err)
