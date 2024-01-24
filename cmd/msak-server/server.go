@@ -12,6 +12,7 @@ import (
 	"github.com/m-lab/access/controller"
 	"github.com/m-lab/access/token"
 	"github.com/m-lab/go/flagx"
+	"github.com/m-lab/go/httpx"
 	"github.com/m-lab/go/prometheusx"
 	"github.com/m-lab/go/rtx"
 	"github.com/m-lab/msak/internal/handler"
@@ -24,6 +25,7 @@ import (
 var (
 	flagCertFile          = flag.String("cert", "", "The file with server certificates in PEM format.")
 	flagKeyFile           = flag.String("key", "", "The file with server key in PEM format.")
+	flagHealthAddr        = flag.String("health_addr", ":8000", "Listen address/port for health checks")
 	flagEndpoint          = flag.String("wss_addr", ":4443", "Listen address/port for TLS connections")
 	flagEndpointCleartext = flag.String("ws_addr", ":8080", "Listen address/port for cleartext connections")
 	flagDataDir           = flag.String("datadir", "./data", "Directory to store data in")
@@ -69,6 +71,12 @@ func httpServer(addr string, handler http.Handler) *http.Server {
 	return s
 }
 
+// Handle requests to the /health endpoint.
+// Writes out a 200 status code.
+func handleHealth(rw http.ResponseWriter, req *http.Request) {
+	rw.WriteHeader(http.StatusOK)
+}
+
 func main() {
 	flag.Parse()
 
@@ -110,9 +118,21 @@ func main() {
 		latency1Handler.Authorize))
 	mux.Handle(latency1spec.ResultV1, http.HandlerFunc(
 		latency1Handler.Result))
+
 	serverCleartext := httpServer(
 		*flagEndpointCleartext,
 		acm.Then(mux))
+
+	// Start separate HTTP server to respond to /health requests.
+	log.Info("Starting health check server", "endpoint", *flagHealthAddr)
+	healthMux := http.NewServeMux()
+	healthMux.Handle("/health", http.HandlerFunc(handleHealth))
+	healthServer := &http.Server{
+		Addr:    *flagHealthAddr,
+		Handler: healthMux,
+	}
+	rtx.Must(httpx.ListenAndServeAsync(healthServer), "Could not start health server")
+	defer healthServer.Close()
 
 	log.Info("About to listen for ws tests", "endpoint", *flagEndpointCleartext)
 
