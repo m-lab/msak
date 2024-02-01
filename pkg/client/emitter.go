@@ -34,8 +34,8 @@ type HumanReadable struct {
 
 // OnResult prints the aggregate result.
 func (HumanReadable) OnResult(r Result) {
-	fmt.Printf("Elapsed: %.2fs, Goodput: %f Mb/s, MinRTT: %d\n", r.Elapsed.Seconds(),
-		r.Goodput/1e6, r.MinRTT)
+	fmt.Printf("Download rate: %f Mb/s, rtt: %.2f, minrtt: %.2f\n",
+		r.Goodput/1e6, float32(r.RTT)/1000, float32(r.MinRTT)/1000)
 }
 
 // OnStart is called when the stream starts and prints the subtest and server hostname.

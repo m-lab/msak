@@ -92,6 +92,12 @@ type Throughput1Client struct {
 	// It is set when the first streams connects to the server and used to compute the elapsed time.
 	sharedStartTime time.Time
 	started         atomic.Bool
+
+	// rtt is the latest RTT value from TCPInfo.
+	rtt atomic.Uint32
+
+	// minRTT is the lowest RTT value observed across all streams.
+	minRTT atomic.Uint32
 }
 
 // Result contains the aggregate metrics collected during the test.
@@ -104,7 +110,9 @@ type Result struct {
 	Throughput float64
 	// Elapsed is the total time elapsed since the test started.
 	Elapsed time.Duration
-	// MinRTT is the minimum of MinRTT values observed across all the streams.
+	// RTT is the latest RTT value from TCPInfo from any stream.
+	RTT uint32
+	// MinRTT is the minimum of RTT values observed across all the streams.
 	MinRTT uint32
 }
 
@@ -214,6 +222,7 @@ func (c *Throughput1Client) start(ctx context.Context, subtest spec.SubtestKind)
 
 	// Reset the counters.
 	c.recvByteCounters = map[int][]int64{}
+	c.rtt.Store(0)
 
 	startTimeCh := make(chan time.Time, 1)
 
@@ -303,39 +312,34 @@ func (c *Throughput1Client) runStream(ctx context.Context, streamID int, mURL *u
 		clientCh, serverCh, errCh = proto.SenderLoop(ctx)
 	}
 
+	var m model.WireMeasurement
+
 	for {
 		select {
 		case <-ctx.Done():
 			c.config.Emitter.OnComplete(streamID, mURL.Host)
 			return nil
-		case m := <-clientCh:
+		case m = <-clientCh:
 			// If subtest is download, store the client-side measurement.
 			if subtest != spec.SubtestDownload {
 				continue
 			}
-			c.config.Emitter.OnMeasurement(streamID, m)
-			c.config.Emitter.OnDebug(fmt.Sprintf("Stream #%d - application r/w: %d/%d, network r/w: %d/%d",
-				streamID, m.Application.BytesReceived, m.Application.BytesSent,
-				m.Network.BytesReceived, m.Network.BytesSent))
-			c.storeMeasurement(streamID, m)
-			if c.started.Load() {
-				c.emitResult(c.sharedStartTime)
-			}
-		case m := <-serverCh:
+		case m = <-serverCh:
 			// If subtest is upload, store the server-side measurement.
 			if subtest != spec.SubtestUpload {
 				continue
 			}
-			c.config.Emitter.OnMeasurement(streamID, m)
-			c.config.Emitter.OnDebug(fmt.Sprintf("#%d - application r/w: %d/%d, network r/w: %d/%d",
-				streamID, m.Application.BytesReceived, m.Application.BytesSent,
-				m.Network.BytesReceived, m.Network.BytesSent))
-			c.storeMeasurement(streamID, m)
-			if c.started.Load() {
-				c.emitResult(c.sharedStartTime)
-			}
 		case err := <-errCh:
 			return err
+		}
+
+		c.config.Emitter.OnMeasurement(streamID, m)
+		c.config.Emitter.OnDebug(fmt.Sprintf("Stream #%d - application r/w: %d/%d, network r/w: %d/%d",
+			streamID, m.Application.BytesReceived, m.Application.BytesSent,
+			m.Network.BytesReceived, m.Network.BytesSent))
+		c.storeMeasurement(streamID, m)
+		if c.started.Load() {
+			c.emitResult(c.sharedStartTime)
 		}
 	}
 }
@@ -345,6 +349,16 @@ func (c *Throughput1Client) storeMeasurement(streamID int, m model.WireMeasureme
 	c.recvByteCountersMutex.Lock()
 	c.recvByteCounters[streamID] = append(c.recvByteCounters[streamID], m.Application.BytesReceived)
 	c.recvByteCountersMutex.Unlock()
+
+	if m.TCPInfo != nil {
+		if m.TCPInfo.RTT > 0 {
+			c.rtt.Store(m.TCPInfo.RTT)
+		}
+		minRTT := c.minRTT.Load()
+		if m.TCPInfo.MinRTT > 0 && (minRTT == 0 || m.TCPInfo.MinRTT < minRTT) {
+			c.minRTT.Store(m.TCPInfo.MinRTT)
+		}
+	}
 }
 
 // applicationBytes returns the aggregate application-level bytes transferred by all the streams.
@@ -368,7 +382,9 @@ func (c *Throughput1Client) emitResult(start time.Time) {
 	result := Result{
 		Elapsed:    elapsed,
 		Goodput:    goodput,
-		Throughput: 0, // TODO
+		Throughput: 0, // TODO,
+		MinRTT:     c.minRTT.Load(),
+		RTT:        c.rtt.Load(),
 	}
 	c.config.Emitter.OnResult(result)
 }
