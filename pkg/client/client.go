@@ -107,6 +107,8 @@ type Throughput1Client struct {
 
 // Result contains the aggregate metrics collected during the test.
 type Result struct {
+	// Subtest is the subtest this Result refers to.
+	Subtest spec.SubtestKind
 	// Goodput is the average number of application-level bits per second that
 	// have been transferred so far across all the streams.
 	Goodput float64
@@ -353,7 +355,7 @@ func (c *Throughput1Client) runStream(ctx context.Context, streamID int, mURL *u
 			m.Network.BytesReceived, m.Network.BytesSent))
 		c.storeMeasurement(streamID, m)
 		if c.started.Load() {
-			res := c.computeResult()
+			res := c.computeResult(subtest)
 			c.config.Emitter.OnResult(res)
 			c.lastResultForSubtestMutex.Lock()
 			c.lastResultForSubtest[subtest] = res
@@ -393,11 +395,12 @@ func (c *Throughput1Client) applicationBytes() int64 {
 }
 
 // computeResult returns a Result struct with the current state of the measurement.
-func (c *Throughput1Client) computeResult() Result {
+func (c *Throughput1Client) computeResult(subtest spec.SubtestKind) Result {
 	applicationBytes := c.applicationBytes()
 	elapsed := time.Since(c.sharedStartTime)
 	goodput := float64(applicationBytes) / float64(elapsed.Seconds()) * 8 // bps
 	return Result{
+		Subtest:           subtest,
 		Elapsed:           elapsed,
 		Goodput:           goodput,
 		Throughput:        0, // TODO,

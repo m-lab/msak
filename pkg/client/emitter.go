@@ -36,8 +36,8 @@ type HumanReadable struct {
 
 // OnResult prints the aggregate result.
 func (HumanReadable) OnResult(r Result) {
-	fmt.Printf("Download rate: %f Mb/s, rtt: %.2f, minrtt: %.2f\n",
-		r.Goodput/1e6, float32(r.RTT)/1000, float32(r.MinRTT)/1000)
+	fmt.Printf("%s rate: %f Mb/s, rtt: %.2f, minrtt: %.2f\n",
+		r.Subtest, r.Goodput/1e6, float32(r.RTT)/1000, float32(r.MinRTT)/1000)
 }
 
 // OnStart is called when the stream starts and prints the subtest and server hostname.
@@ -71,8 +71,10 @@ func (HumanReadable) OnSummary(results map[spec.SubtestKind]Result) {
 	fmt.Println()
 	fmt.Printf("Test results:\n")
 	for kind, result := range results {
-		fmt.Printf("  %s rate: %.2f Mb/s, rtt: %.2f ms, minrtt: %.2f ms\n",
+		fmt.Printf("  %s rate: %.2f Mb/s, rtt: %.2fms, minrtt: %.2fms\n",
 			kind, result.Goodput/1e6, float32(result.RTT)/1000, float32(result.MinRTT)/1000)
+		fmt.Printf("    streams: %d, duration: %.2fs, cc algo: %s, byte limit: %d bytes\n",
+			result.Streams, result.Length.Seconds(), result.CongestionControl, result.ByteLimit)
 	}
 }
 
