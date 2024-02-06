@@ -65,4 +65,6 @@ func main() {
 	if *flagUpload {
 		cl.Upload(context.Background())
 	}
+
+	cl.PrintSummary()
 }

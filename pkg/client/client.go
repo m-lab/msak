@@ -30,7 +30,7 @@ const (
 	DefaultWebSocketHandshakeTimeout = 5 * time.Second
 
 	// DefaultStreams is the default number of streams for a new client.
-	DefaultStreams = 3
+	DefaultStreams = 2
 
 	// DefaultLength is the default test duration for a new client.
 	DefaultLength = 5 * time.Second
@@ -98,6 +98,11 @@ type Throughput1Client struct {
 
 	// minRTT is the lowest RTT value observed across all streams.
 	minRTT atomic.Uint32
+
+	// lastResultForSubtest contains the last recorded measurement for the
+	// corresponding subtest (download/upload).
+	lastResultForSubtest      map[spec.SubtestKind]Result
+	lastResultForSubtestMutex sync.Mutex
 }
 
 // Result contains the aggregate metrics collected during the test.
@@ -114,6 +119,14 @@ type Result struct {
 	RTT uint32
 	// MinRTT is the minimum of RTT values observed across all the streams.
 	MinRTT uint32
+	// Streams is the number of streams used in the test.
+	Streams int
+	// ByteLimit is the byte limit used in the test.
+	ByteLimit int
+	// Length is the length of the test.
+	Length time.Duration
+	// CongestionControl is the congestion control used in the test.
+	CongestionControl string
 }
 
 // makeUserAgent creates the user agent string.
@@ -139,6 +152,8 @@ func New(clientName, clientVersion string, config Config) *Throughput1Client {
 
 		tIndex:           map[string]int{},
 		recvByteCounters: map[int][]int64{},
+
+		lastResultForSubtest: map[spec.SubtestKind]Result{},
 	}
 }
 
@@ -262,7 +277,6 @@ func (c *Throughput1Client) start(ctx context.Context, subtest spec.SubtestKind)
 	}
 
 	wg.Wait()
-
 	return nil
 }
 
@@ -317,7 +331,7 @@ func (c *Throughput1Client) runStream(ctx context.Context, streamID int, mURL *u
 	for {
 		select {
 		case <-ctx.Done():
-			c.config.Emitter.OnComplete(streamID, mURL.Host)
+			c.config.Emitter.OnStreamComplete(streamID, mURL.Host)
 			return nil
 		case m = <-clientCh:
 			// If subtest is download, store the client-side measurement.
@@ -339,7 +353,11 @@ func (c *Throughput1Client) runStream(ctx context.Context, streamID int, mURL *u
 			m.Network.BytesReceived, m.Network.BytesSent))
 		c.storeMeasurement(streamID, m)
 		if c.started.Load() {
-			c.emitResult(c.sharedStartTime)
+			res := c.computeResult()
+			c.config.Emitter.OnResult(res)
+			c.lastResultForSubtestMutex.Lock()
+			c.lastResultForSubtest[subtest] = res
+			c.lastResultForSubtestMutex.Unlock()
 		}
 	}
 }
@@ -374,19 +392,22 @@ func (c *Throughput1Client) applicationBytes() int64 {
 	return sum
 }
 
-// emitResult emits the result of the current measurement via the configured Emitter.
-func (c *Throughput1Client) emitResult(start time.Time) {
+// computeResult returns a Result struct with the current state of the measurement.
+func (c *Throughput1Client) computeResult() Result {
 	applicationBytes := c.applicationBytes()
-	elapsed := time.Since(start)
+	elapsed := time.Since(c.sharedStartTime)
 	goodput := float64(applicationBytes) / float64(elapsed.Seconds()) * 8 // bps
-	result := Result{
-		Elapsed:    elapsed,
-		Goodput:    goodput,
-		Throughput: 0, // TODO,
-		MinRTT:     c.minRTT.Load(),
-		RTT:        c.rtt.Load(),
+	return Result{
+		Elapsed:           elapsed,
+		Goodput:           goodput,
+		Throughput:        0, // TODO,
+		MinRTT:            c.minRTT.Load(),
+		RTT:               c.rtt.Load(),
+		Streams:           c.config.NumStreams,
+		ByteLimit:         c.config.ByteLimit,
+		Length:            c.config.Length,
+		CongestionControl: c.config.CongestionControl,
 	}
-	c.config.Emitter.OnResult(result)
 }
 
 // Download runs a download test using the settings configured for this client.
@@ -403,6 +424,11 @@ func (c *Throughput1Client) Upload(ctx context.Context) {
 	if err != nil {
 		log.Println(err)
 	}
+}
+
+// PrintSummary emits a summary via the configured emitter
+func (c *Throughput1Client) PrintSummary() {
+	c.config.Emitter.OnSummary(c.lastResultForSubtest)
 }
 
 func getPathForSubtest(subtest spec.SubtestKind) string {

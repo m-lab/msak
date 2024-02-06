@@ -20,10 +20,12 @@ type Emitter interface {
 	OnResult(Result)
 	// OnError is called on errors.
 	OnError(err error)
-	// OnComplete is called after a stream completes.
-	OnComplete(streamID int, server string)
+	// OnStreamComplete is called after a stream completes.
+	OnStreamComplete(streamID int, server string)
 	// OnDebug is called to print debug information.
 	OnDebug(msg string)
+	// OnSummary is called to print summary information.
+	OnSummary(results map[spec.SubtestKind]Result)
 }
 
 // HumanReadable prints human-readable output to stdout.
@@ -60,9 +62,18 @@ func (HumanReadable) OnError(err error) {
 	}
 }
 
-// OnComplete is called after a stream completes.
-func (HumanReadable) OnComplete(streamID int, server string) {
+// OnStreamComplete is called after a stream completes.
+func (HumanReadable) OnStreamComplete(streamID int, server string) {
 	fmt.Printf("Stream %d complete (server %s)\n", streamID, server)
+}
+
+func (HumanReadable) OnSummary(results map[spec.SubtestKind]Result) {
+	fmt.Println()
+	fmt.Printf("Test results:\n")
+	for kind, result := range results {
+		fmt.Printf("  %s rate: %.2f Mb/s, rtt: %.2f ms, minrtt: %.2f ms\n",
+			kind, result.Goodput/1e6, float32(result.RTT)/1000, float32(result.MinRTT)/1000)
+	}
 }
 
 // OnDebug is called to print debug information.
