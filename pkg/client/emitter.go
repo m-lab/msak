@@ -20,10 +20,12 @@ type Emitter interface {
 	OnResult(Result)
 	// OnError is called on errors.
 	OnError(err error)
-	// OnComplete is called after a stream completes.
-	OnComplete(streamID int, server string)
+	// OnStreamComplete is called after a stream completes.
+	OnStreamComplete(streamID int, server string)
 	// OnDebug is called to print debug information.
 	OnDebug(msg string)
+	// OnSummary is called to print summary information.
+	OnSummary(results map[spec.SubtestKind]Result)
 }
 
 // HumanReadable prints human-readable output to stdout.
@@ -34,8 +36,8 @@ type HumanReadable struct {
 
 // OnResult prints the aggregate result.
 func (HumanReadable) OnResult(r Result) {
-	fmt.Printf("Elapsed: %.2fs, Goodput: %f Mb/s, MinRTT: %d\n", r.Elapsed.Seconds(),
-		r.Goodput/1e6, r.MinRTT)
+	fmt.Printf("%s rate: %f Mb/s, rtt: %.2f, minrtt: %.2f\n",
+		r.Subtest, r.Goodput/1e6, float32(r.RTT)/1000, float32(r.MinRTT)/1000)
 }
 
 // OnStart is called when the stream starts and prints the subtest and server hostname.
@@ -60,9 +62,20 @@ func (HumanReadable) OnError(err error) {
 	}
 }
 
-// OnComplete is called after a stream completes.
-func (HumanReadable) OnComplete(streamID int, server string) {
+// OnStreamComplete is called after a stream completes.
+func (HumanReadable) OnStreamComplete(streamID int, server string) {
 	fmt.Printf("Stream %d complete (server %s)\n", streamID, server)
+}
+
+func (HumanReadable) OnSummary(results map[spec.SubtestKind]Result) {
+	fmt.Println()
+	fmt.Printf("Test results:\n")
+	for kind, result := range results {
+		fmt.Printf("  %s rate: %.2f Mb/s, rtt: %.2fms, minrtt: %.2fms\n",
+			kind, result.Goodput/1e6, float32(result.RTT)/1000, float32(result.MinRTT)/1000)
+		fmt.Printf("    streams: %d, duration: %.2fs, cc algo: %s, byte limit: %d bytes\n",
+			result.Streams, result.Length.Seconds(), result.CongestionControl, result.ByteLimit)
+	}
 }
 
 // OnDebug is called to print debug information.
