@@ -7,7 +7,7 @@
 
 The [MSAK design doc (view)][1] describes the throughput1 and latency1 protocols.
 
-[1]: https://docs.google.com/document/d/1OmKXGhQe2mT1gSXI2NT_SxvnKu5OHpBGIYpoWNJwmWA/edit
+[1]: https://docs.google.com/document/d/1OmKXGhQe2mT1gSXI2NT_SxvnKu5OHpBGIYpoWNJwmWA/edit?usp=sharing&resourcekey=0-kCenAC2xuZeAPv_WjEsF3w
 
 * `msak-server` - is the MSAK server
 * `msak-client` - is a full reference client for the throughput1 protocol
