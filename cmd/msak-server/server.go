@@ -19,6 +19,9 @@ import (
 	"github.com/m-lab/msak/internal/netx"
 	latency1spec "github.com/m-lab/msak/pkg/latency1/spec"
 	"github.com/m-lab/msak/pkg/throughput1/spec"
+	"github.com/m-lab/ndt-server/ndt7/listener"
+	pthandler "github.com/m-lab/packet-test/handler"
+	"github.com/m-lab/packet-test/static"
 )
 
 var (
@@ -30,6 +33,9 @@ var (
 	flagLatencyEndpoint   = flag.String("latency_addr", ":1053", "Listen address/port for UDP latency tests")
 	flagLatencyTTL        = flag.Duration("latency_ttl",
 		latency1spec.DefaultSessionCacheTTL, "Session cache's TTL")
+	flagHostname   = flag.String("hostname", "localhost", "Server hostname")
+	flagPtEnabled  = flag.Bool("pt.enabled", false, "Enable packet-test protocol")
+	flagPtEndpoint = flag.String("pt.ws_addr", ":8081", "Listen address/port for packet-test cleartext connections")
 	tokenVerifyKey = flagx.FileBytesArray{}
 	tokenVerify    bool
 	tokenMachine   string
@@ -110,6 +116,21 @@ func main() {
 		latency1Handler.Authorize))
 	mux.Handle(latency1spec.ResultV1, http.HandlerFunc(
 		latency1Handler.Result))
+
+	if *flagPtEnabled {
+		// Handler for the packet-test modified ndt7 protocol.
+		packetTestHandler := pthandler.New(*flagDataDir, *flagHostname)
+		ptMux := http.NewServeMux()
+		ptMux.Handle(static.NDT7DownloadURLPath, http.HandlerFunc(packetTestHandler.NDT7Download))
+		srv := &http.Server{
+			Addr:    *flagPtEndpoint,
+			Handler: acm.Then(ptMux),
+		}
+		rtx.Must(listener.ListenAndServeAsync(srv), "Failed to start server")
+		log.Info("Started packet-test protocol server", "endpoint", *flagPtEndpoint)
+
+	}
+
 	serverCleartext := httpServer(
 		*flagEndpointCleartext,
 		acm.Then(mux))
