@@ -17,6 +17,7 @@ import (
 	"github.com/m-lab/msak/internal/handler"
 	"github.com/m-lab/msak/internal/latency1"
 	"github.com/m-lab/msak/internal/netx"
+	"github.com/m-lab/msak/internal/ping1"
 	latency1spec "github.com/m-lab/msak/pkg/latency1/spec"
 	"github.com/m-lab/msak/pkg/throughput1/spec"
 )
@@ -103,6 +104,7 @@ func main() {
 	mux := http.NewServeMux()
 	latency1Handler := latency1.NewHandler(*flagDataDir, *flagLatencyTTL)
 	throughput1Handler := handler.New(*flagDataDir)
+	ping1Handler := ping1.New()
 
 	mux.Handle(spec.DownloadPath, http.HandlerFunc(throughput1Handler.Download))
 	mux.Handle(spec.UploadPath, http.HandlerFunc(throughput1Handler.Upload))
@@ -110,6 +112,7 @@ func main() {
 		latency1Handler.Authorize))
 	mux.Handle(latency1spec.ResultV1, http.HandlerFunc(
 		latency1Handler.Result))
+	mux.Handle("/ping/v1/ws", http.HandlerFunc(ping1Handler.HandlePing))
 	serverCleartext := httpServer(
 		*flagEndpointCleartext,
 		acm.Then(mux))

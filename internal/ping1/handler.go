@@ -12,7 +12,11 @@ import (
 
 type Handler struct{}
 
-func (h *Handler) upgradeAndRunMeasurement(rw http.ResponseWriter,
+func New() *Handler {
+	return &Handler{}
+}
+
+func (h *Handler) HandlePing(rw http.ResponseWriter,
 	req *http.Request) {
 	wsConn, err := ping1.Upgrade(rw, req)
 	if err != nil {
@@ -27,5 +31,4 @@ func (h *Handler) upgradeAndRunMeasurement(rw http.ResponseWriter,
 
 	proto := ping1.New(wsConn)
 	proto.Start(timeout)
-
 }

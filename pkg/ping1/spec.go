@@ -8,5 +8,11 @@ const (
 )
 
 type PingMessage struct {
-	ns int64
+	// NS is the time (nanoseconds) when this PingMessage was created.
+	NS int64
+}
+
+type ResultMessage struct {
+	// RTTs is the list of collected RTTs in microseconds.
+	RTTs []int64
 }
