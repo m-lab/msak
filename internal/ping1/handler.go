@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/charmbracelet/log"
 
@@ -25,8 +26,21 @@ func (h *Handler) HandlePing(rw http.ResponseWriter,
 		return
 	}
 
+	duration := ping1.DefaultDuration
+
+	// If the duration is specified in the query string, use that instead.
+	durationStr := req.URL.Query().Get("duration")
+	if durationStr != "" {
+		d, err := time.ParseDuration(durationStr)
+		if err == nil {
+			duration = d
+		} else {
+			log.Info("Invalid duration", "duration", d)
+		}
+	}
+
 	// Set the runtime to the expected duration.
-	timeout, cancel := context.WithTimeout(req.Context(), ping1.DefaultDuration)
+	timeout, cancel := context.WithTimeout(req.Context(), duration)
 	defer cancel()
 
 	proto := ping1.New(wsConn)
