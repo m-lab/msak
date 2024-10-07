@@ -33,7 +33,7 @@ const (
 	UploadPath = "/throughput/v1/upload"
 
 	// MaxRuntime is the maximum runtime of a subtest.
-	MaxRuntime = 15 * time.Second
+	MaxRuntime = 25 * time.Second
 
 	// SecWebSocketProtocol is the value of the Sec-WebSocket-Protocol header.
 	SecWebSocketProtocol = "net.measurementlab.throughput.v1"
