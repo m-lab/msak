@@ -78,6 +78,12 @@ var (
 	)
 )
 
+// channelDrainTimeout is the maximum time to wait for in-flight
+// measurements after the test duration expires. The sender goroutine
+// typically produces the final measurement within microseconds of
+// ctx.Done(), so this is a generous upper bound.
+const channelDrainTimeout = 500 * time.Millisecond
+
 type Handler struct {
 	archivalDataDir string
 }
@@ -237,7 +243,9 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 		ClientOptions:  clientOptions,
 	}
 	defer func() {
-		archivalData.EndTime = time.Now()
+		if archivalData.EndTime.IsZero() {
+			archivalData.EndTime = time.Now()
+		}
 		h.writeResult(uuid, kind, &archivalData)
 	}()
 
@@ -258,7 +266,37 @@ func (h *Handler) upgradeAndRunMeasurement(kind model.TestDirection, rw http.Res
 	for {
 		select {
 		case <-timeout.Done():
-			// If the test has timed out count it as a success and return.
+			// Record EndTime before draining so it reflects the
+			// actual measurement period, not the drain wait.
+			archivalData.EndTime = time.Now()
+			// The test has timed out. Before returning, drain any
+			// remaining measurements from the sender/receiver
+			// goroutines. The sender sends a final Measure() on
+			// ctx.Done() which may still be in-flight.
+			drainTimer := time.NewTimer(channelDrainTimeout)
+			defer drainTimer.Stop()
+			for draining := true; draining; {
+				select {
+				case m := <-senderCh:
+					if kind == model.DirectionDownload && m.CC != "" {
+						archivalData.CCAlgorithm = m.CC
+					}
+					archivalData.ServerMeasurements = append(
+						archivalData.ServerMeasurements, m.Measurement)
+					// Reset to a short timeout: the final measurement
+					// has arrived, just check for any stragglers.
+					drainTimer.Reset(5 * time.Millisecond)
+				case m := <-receiverCh:
+					if kind == model.DirectionUpload && m.CC != "" {
+						archivalData.CCAlgorithm = m.CC
+					}
+					archivalData.ClientMeasurements = append(
+						archivalData.ClientMeasurements, m.Measurement)
+					drainTimer.Reset(5 * time.Millisecond)
+				case <-drainTimer.C:
+					draining = false
+				}
+			}
 			testsTotal.WithLabelValues(string(kind), "ok-timeout").Inc()
 			return
 		case m := <-senderCh:
