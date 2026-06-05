@@ -14,7 +14,7 @@ The [MSAK design doc (view)][1] describes the throughput1 and latency1 protocols
 
 Additional reference clients are also available:
 
-* `minimal-download` - is a minimal download-only, reference cleint for the throughput1 protocol
+* `minimal-download` - is a minimal download-only, reference client for the throughput1 protocol
 * `msak-latency` - is a reference client for the latency1 protocol
 
 ## Server
